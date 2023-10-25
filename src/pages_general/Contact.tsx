@@ -5,18 +5,18 @@ export default function Contact() {
       <h1>Contact</h1>
       <ul className="horizontal-list" id="contactList">
         {contactOption(
-          "Emali",
-          "src/assets/email.png",
+          "Email",
+          "src\\assets\\email.png ",
           "mailto:bela.schinke@gmail.com"
         )}
         {contactOption(
           "LinkedIn",
-          "src/assets/linkedin.png",
+          "src\\assets\\linkedin.png",
           "https://www.linkedin.com/in/bela-schinke/"
         )}
         {contactOption(
           "GitHub",
-          "src/assets/github.png",
+          "src\\assets\\github.png",
           "https://github.com/Bela4321"
         )}
       </ul>

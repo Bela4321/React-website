@@ -2,7 +2,6 @@ function CallSolverAPI() {
   const form = document.getElementById("sudokuInput") as HTMLFormElement;
   form.addEventListener("submit", function (e) {
     e.preventDefault();
-    alert("js called");
 
     // Get the form data as a 2D array
     const formData = new FormData(this);
