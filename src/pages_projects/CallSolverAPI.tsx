@@ -34,7 +34,9 @@ function CallSolverAPI() {
 }
 
 async function fetchData(sudokuString: string) {
-  const url = "http://localhost:8080/sudokuSolve?sudoku=" + sudokuString;
+  const url =
+    "https://h2151j6tz7.execute-api.us-east-2.amazonaws.com/default/ServerlessSudokuApi?sudoku=" +
+    sudokuString;
   try {
     const response = await fetch(url);
 
