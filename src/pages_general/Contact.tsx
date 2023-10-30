@@ -16,6 +16,12 @@ export default function Contact() {
         )}
         {contactOption("GitHub", GitHubImg, "https://github.com/Bela4321")}
       </ul>
+      <div>
+        <p>
+          {" "}
+          Icons by <a href="https://icons8.com/">Icon8</a>.
+        </p>
+      </div>
     </div>
   );
 }
