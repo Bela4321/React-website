@@ -14,8 +14,6 @@ function CallSolverAPI() {
       }
     }
 
-    // You can now pass the matrix to your JavaScript function or perform any other action.
-    // For demonstration, we will just display the matrix in the result div.
     const result = document.getElementById("result");
     if (result) {
       result.innerText = "Matrix submitted";
@@ -49,7 +47,9 @@ async function fetchData(sudokuString: string) {
 
     // Handle the JSON data
     console.log(data);
+
     displaySolution(data.sudoku);
+    //display message
     const result = document.getElementById("result");
     if (result) {
       result.innerText = data.message;
