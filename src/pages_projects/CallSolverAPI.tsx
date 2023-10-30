@@ -49,7 +49,7 @@ async function fetchData(sudokuString: string) {
 
     // Handle the JSON data
     console.log(data);
-    displaySolution(data.content);
+    displaySolution(data.sudoku);
   } catch (error) {
     // Handle errors
     console.error("There was a problem with the fetch operation:", error);
