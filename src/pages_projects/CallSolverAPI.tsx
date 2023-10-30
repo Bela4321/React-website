@@ -18,7 +18,7 @@ function CallSolverAPI() {
     // For demonstration, we will just display the matrix in the result div.
     const result = document.getElementById("result");
     if (result) {
-      result.innerText = "Matrix submitted: " + JSON.stringify(matrix);
+      result.innerText = "Matrix submitted";
     }
 
     //check validity
@@ -50,6 +50,10 @@ async function fetchData(sudokuString: string) {
     // Handle the JSON data
     console.log(data);
     displaySolution(data.sudoku);
+    const result = document.getElementById("result");
+    if (result) {
+      result.innerText = data.message;
+    }
   } catch (error) {
     // Handle errors
     console.error("There was a problem with the fetch operation:", error);
