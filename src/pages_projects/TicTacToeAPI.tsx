@@ -1,3 +1,4 @@
+export {};
 const socket = new WebSocket("ws://localhost:8080/ticTacToe");
 //gamestate
 const gamestate = {
