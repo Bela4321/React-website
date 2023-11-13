@@ -36,7 +36,7 @@ function end() {
 function input() {
   return (
     <div id="playerInfoInput">
-      <form className="playerInfo">
+      <form className="playerInfo" onSubmit={submit()}>
         <h3>Nickname</h3>
         <input type="text" id="nickname" />
         <br />
@@ -48,10 +48,9 @@ function input() {
     </div>
   );
 }
-document.getElementById("playerInfoInput")?.addEventListener("submit", (e) => {
-  e.preventDefault();
+function submit() {
   const nickname =
-    document.getElementById("playerInfoInput")?.children[0].children[1].value;
+    document.getElementById("nickname")?.innerHTML;
   const roomNumber =
     document.getElementById("playerInfoInput")?.children[1].children[1].value;
   console.log(nickname, roomNumber);

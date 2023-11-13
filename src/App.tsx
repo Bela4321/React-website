@@ -5,6 +5,7 @@ import Home from "./pages_general/Home";
 import { Route, Routes } from "react-router-dom";
 
 import SudokuSolver from "./pages_projects/SudokuSolver";
+import TicTacToe from "./pages_projects/TicTacToe";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
           <Route path="/projects" element={<Projects />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/projects/sudokuSolver" element={<SudokuSolver />} />
+          <Route path="/projects/ticTacToe" element={<TicTacToe />} />
         </Routes>
       </div>
     </>

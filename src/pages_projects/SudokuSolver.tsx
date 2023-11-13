@@ -692,7 +692,6 @@ export default function SudokuSolver() {
         <input type="submit" value="Solve" />
       </form>
       <p id="result"></p>
-      <script src="src\pages_projects\CallSolverAPI.js"></script>
     </>
   );
 }

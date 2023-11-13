@@ -17,7 +17,7 @@ const Dropdown = () => {
       {showDropdown && (
         <div className={"dropdown" + (showDropdown ? " pos-abs" : "")}>
           <CustomLink to="/projects/SudokuSolver">Sudoku Solver</CustomLink>
-          <CustomLink to="/projects/2">Project 2</CustomLink>
+          <CustomLink to="/projects/ticTacToe">TicTacToe</CustomLink>
           <CustomLink to="/projects/3">Project 3</CustomLink>
         </div>
       )}
