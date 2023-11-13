@@ -4,7 +4,6 @@ import React, { useState } from "react";
 
 export default function TicTacToe() {
   const [gameState, setGameState] = useState("login");
-  const;
 
   return (
     <div className="TicTacToe">
@@ -36,7 +35,7 @@ function end() {
 function input() {
   return (
     <div id="playerInfoInput">
-      <form className="playerInfo" onSubmit={submit()}>
+      <form className="playerInfo">
         <h3>Nickname</h3>
         <input type="text" id="nickname" />
         <br />
@@ -49,9 +48,9 @@ function input() {
   );
 }
 function submit() {
-  const nickname =
-    document.getElementById("nickname")?.innerHTML;
+  const nickname = document.getElementById("nickname")?.innerHTML;
   const roomNumber =
-    document.getElementById("playerInfoInput")?.children[1].children[1].value;
+    document.getElementById("playerInfoInput")?.children[1].children[1]
+      .innerHTML;
   console.log(nickname, roomNumber);
-});
+}
