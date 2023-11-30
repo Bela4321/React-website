@@ -25,6 +25,10 @@ export type StateData = {
   setGameState: React.Dispatch<React.SetStateAction<GameState>>;
   opponent: string;
   setOpponent: React.Dispatch<React.SetStateAction<string>>;
+  websocket: WebSocket;
+  setMenuState: React.Dispatch<React.SetStateAction<string>>;
+  nickname: string;
+  roomNumber: number;
 };
 export interface InitialResponse {
   msg_NAME: "InitialResponse";
@@ -64,6 +68,7 @@ export interface TurnResponse {
   win: boolean;
   lose: boolean;
   draw: boolean;
+  gameEnd: boolean;
 }
 export interface InitialRequest {
   msg_NAME: "InitialRequest";
@@ -76,4 +81,12 @@ export interface TurnRequest {
   authToken: string;
   x: number;
   y: number;
+}
+export interface GameUpdate {
+  x: number;
+  y: number;
+  win: boolean;
+  lose: boolean;
+  draw: boolean;
+  gameEnd: boolean;
 }

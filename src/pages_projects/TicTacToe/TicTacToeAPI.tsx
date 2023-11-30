@@ -4,7 +4,6 @@ import {
   TicTacToeAPIProps,
   GameState,
   StateData,
-  InitialResponse,
   GameStartResponse,
   GameUpdateResponse,
   TurnResponse,
@@ -12,6 +11,7 @@ import {
   InitialRequest,
 } from "./TicTacToeAPIProps";
 import { displayBoard } from "./displayBoard";
+import { handleMessage } from "./handleMessage";
 
 export default function TicTacToeAPI({
   nickname,
@@ -19,10 +19,9 @@ export default function TicTacToeAPI({
   setMenuState,
 }: TicTacToeAPIProps) {
   //websocket
-  const wsRef = useRef(new WebSocket("ws://localhost:8080/ticTacToe"));
-
-  //close hook
-  const menuStateRef = useRef(setMenuState);
+  const [websocket, setWebsocket] = useState(
+    new WebSocket("ws://localhost:8080/ticTacToe")
+  );
 
   //set other data
   const [authToken, setAuthToken] = useState("");
@@ -57,35 +56,42 @@ export default function TicTacToeAPI({
     setGameState: setGameState,
     opponent: opponent,
     setOpponent: setOpponent,
+    websocket: websocket,
+    setMenuState: setMenuState,
+    nickname: nickname,
+    roomNumber: roomNumber,
   };
   //websocket
-  wsRef.current.addEventListener("open", (event) => {
+  websocket.addEventListener("open", (event) => {
     console.log("WebSocket connection opened:", event);
-    sendInitialMessage(wsRef.current, nickname, roomNumber);
+    sendInitialMessage(websocket, nickname, roomNumber);
   });
-  wsRef.current.addEventListener("message", (event) => {
+  websocket.addEventListener("message", (event) => {
     console.log("Message from server:", event.data);
     handleMessage(event, stateData);
   });
-  wsRef.current.addEventListener("close", (event) => {
+  websocket.addEventListener("close", (event) => {
     console.log("WebSocket connection closed:", event);
     setRoomState("gameEnded");
   });
 
-  const leaveRoom = () => {
-    wsRef.current.close();
-    setMenuState("login");
-  };
+  return renderTicTacToe(stateData);
+}
 
-  switch (roomState) {
+function renderTicTacToe(stateData: StateData) {
+  const leaveRoom = () => {
+    stateData.websocket.close();
+    stateData.setMenuState("login");
+  };
+  switch (stateData.roomState) {
     case "notConnected":
       return (
         <>
           <p>
             Not connected
             <br />
-            trying to establish a connection with room {roomNumber} as
-            {nickname}
+            trying to establish a connection with room {stateData.roomNumber} as
+            {stateData.nickname}
           </p>
           <button onClick={leaveRoom}>Abort</button>
         </>
@@ -94,7 +100,8 @@ export default function TicTacToeAPI({
       return (
         <>
           <p>
-            Waiting for second Player in room {roomNumber} as {nickname}.
+            Waiting for second Player in room {stateData.roomNumber} as{" "}
+            {stateData.nickname}.
           </p>
           <button onClick={leaveRoom}>Leave</button>
         </>
@@ -102,14 +109,14 @@ export default function TicTacToeAPI({
     case "ingame":
       return (
         <>
-          {displayBoard(stateData, wsRef.current)}
+          {displayBoard(stateData, stateData.websocket)}
           <button onClick={leaveRoom}>Quit</button>
         </>
       );
     case "gameEnded":
       return (
         <>
-          {displayBoard(stateData, wsRef.current)}
+          {displayBoard(stateData, stateData.websocket)}
           <p>Game ended:{resultDisplay(stateData)}</p>
           <button onClick={leaveRoom}>New</button>
         </>
@@ -117,7 +124,7 @@ export default function TicTacToeAPI({
     default:
       return (
         <>
-          <p>{roomState}</p>
+          <p>{stateData.roomState}</p>
           <button onClick={leaveRoom}>New</button>
         </>
       );
@@ -130,16 +137,14 @@ export function sendTurnRequest(
   y: number,
   ws: WebSocket
 ) {
-  ws.send(
-    "TurnRequest:authToken," +
-      stateData.authToken +
-      ",playerId," +
-      stateData.playerId +
-      ",x," +
-      x +
-      ",y," +
-      y
-  );
+  const turnRequest: TurnRequest = {
+    msg_NAME: "TurnRequest",
+    playerId: stateData.playerId,
+    authToken: stateData.authToken,
+    x: x,
+    y: y,
+  };
+  ws.send(JSON.stringify(turnRequest));
 }
 
 function sendInitialMessage(
@@ -153,132 +158,6 @@ function sendInitialMessage(
     roomId: roomNumber,
   };
   ws.send(JSON.stringify(initialRequest));
-  ws.send("InitialRequest:nickname," + nickname + ";roomId," + roomNumber);
-}
-
-//sort message and call appropriate function
-function handleMessage(message: MessageEvent, stateData: StateData) {
-  //parse message json
-  const messageJson = JSON.parse(message.data);
-  //sort message
-  switch (messageJson.msg_NAME) {
-    case "InitialResponse":
-      handleInitialResponse(messageJson, stateData);
-      break;
-    case "GameStartResponse":
-      handleGameStartResponse(messageJson, stateData);
-      break;
-    case "GameUpdateResponse":
-      handleGameUpdateResponse(messageJson, stateData);
-      break;
-    case "TurnResponse":
-      handleTurnResponse(messageJson, stateData);
-      break;
-  }
-}
-
-function handleTurnResponse(messageJson: any, stateData: StateData) {
-  //check validity of message
-  if (messageJson.ErrorMsg != "" || !messageJson.valid) {
-    alert(messageJson.ErrorMsg);
-    return;
-  }
-  //update board
-  const new_board = messageJson.Board;
-  new_board[messageJson.X][messageJson.Y] = stateData.playerNumber;
-  stateData.setGameState({
-    ...stateData.gameState,
-    board: new_board,
-  });
-  //set turn
-  stateData.setGameState({
-    ...stateData.gameState,
-    turn: false,
-  });
-}
-
-function handleGameUpdateResponse(messageJson: any, stateData: StateData) {
-  //check validity of message
-  if (messageJson.ErrorMsg != "") {
-    alert(messageJson.ErrorMsg);
-    return;
-  }
-  //update board
-  const new_board = messageJson.Board;
-  new_board[messageJson.X][messageJson.Y] = 3 - stateData.playerNumber;
-  stateData.setGameState({
-    ...stateData.gameState,
-    board: new_board,
-    turn: true,
-  });
-  //check if game ended
-  if (!messageJson.gameEnd) {
-    return;
-  }
-  //set win, lose or draw
-  stateData.setGameState({
-    ...stateData.gameState,
-    win: messageJson.win,
-    lose: messageJson.lose,
-    draw: messageJson.draw,
-  });
-  //set gameEnded
-  stateData.setRoomState("gameEnded");
-}
-
-function handleGameStartResponse(messageJson: any, stateData: StateData) {
-  //find out if player is player1 or player2
-  const isPlayer1 = messageJson.player1Id == stateData.playerId;
-
-  //set playerNumber
-  if (isPlayer1) {
-    stateData.setPlayerNumber(1);
-  } else {
-    stateData.setPlayerNumber(2);
-  }
-  //set turn
-  if (isPlayer1 == messageJson.player1Turn) {
-    stateData.setGameState({
-      ...stateData.gameState,
-      turn: true,
-    });
-  } else {
-    stateData.setGameState({
-      ...stateData.gameState,
-      turn: false,
-    });
-  }
-
-  //set opponent
-  if (isPlayer1) {
-    stateData.setOpponent(messageJson.player2Nickname);
-  } else {
-    stateData.setOpponent(messageJson.player1Nickname);
-  }
-}
-
-function handleInitialResponse(messageJson: any, stateData: StateData) {
-  //check if message is conform with InitialResponse interface
-  try {
-    const initialResponse: InitialResponse = messageJson;
-  } catch {
-    alert("messageJson not conform with InitialResponse interface");
-    return;
-  }
-  console.log(messageJson);
-  //check if initialization was unsuccessful
-  if (!(messageJson.errorMsg == "")) {
-    alert(messageJson.errorMsg);
-    //return to login
-    stateData.setRoomState("couldn't connect to room");
-    return;
-  }
-  //set authToken
-  stateData.setAuthToken(messageJson.authToken);
-  //set playerId
-  stateData.setPlayerId(messageJson.playerId);
-  //set roomState
-  stateData.setRoomState("waitingForPlayer");
 }
 
 function resultDisplay(stateData: StateData) {

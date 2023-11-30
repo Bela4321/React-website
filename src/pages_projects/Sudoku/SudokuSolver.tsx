@@ -1,4 +1,4 @@
-import "../css/SudokuSolver.css";
+import "../../css/SudokuSolver.css";
 import CallSolverAPI from "./CallSolverAPI";
 import { useEffect } from "react";
 
