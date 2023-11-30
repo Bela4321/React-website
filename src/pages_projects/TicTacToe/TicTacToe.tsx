@@ -1,4 +1,4 @@
-import "../.. /css/TicTacToe.css";
+import "../../css/TicTacToe.css";
 
 import React, { useState } from "react";
 import TicTacToeAPI from "./TicTacToeAPI";
