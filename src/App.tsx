@@ -4,8 +4,8 @@ import Contact from "./pages_general/Contact";
 import Home from "./pages_general/Home";
 import { Route, Routes } from "react-router-dom";
 
-import SudokuSolver from "./pages_projects/SudokuSolver";
-import TicTacToe from "./pages_projects/TicTacToe";
+import SudokuSolver from "./pages_projects/Sudoku/SudokuSolver";
+import TicTacToe from "./pages_projects/TicTacToe/TicTacToe";
 
 function App() {
   return (

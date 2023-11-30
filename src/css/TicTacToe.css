@@ -1,0 +1,39 @@
+#TicTacToeBoard {
+    display: inline-flex;
+    width: min(70vh,70%); /* Total width of the board */
+    aspect-ratio:  1/1; /* Keep the board square */
+    margin: auto;
+    justify-content: space-between;
+    align-content: space-between;
+    flex-wrap: wrap;
+  }
+  
+  .TicTacToeRow {
+    padding: 0px;
+    width: 100%;
+    height: 30%;
+    margin-right: 0px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .TicTacToeCell {
+    padding: 0px;
+    border: 1px solid #ccc;
+    width: 30%;
+  }
+  
+  .TicTacToeButton {
+    width: 100%;
+    height: 100%;
+    font-size: 5vh;
+    font-weight: bold;
+    background-color: #fff;
+    border: none;
+    outline: none;
+    cursor: pointer;
+  }
+
+  
+  /* Add additional styling for X and O if needed */
+  
