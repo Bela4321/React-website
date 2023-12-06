@@ -20,7 +20,7 @@ export default function TicTacToeAPI({
 }: TicTacToeAPIProps) {
   //websocket
   const [websocket, setWebsocket] = useState(
-    new WebSocket("ws://localhost:8080/ticTacToe")
+    new WebSocket("ws://150.230.148.196:8080/ticTacToe")
   );
 
   //set other data
