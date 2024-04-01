@@ -1,6 +1,6 @@
 #TicTacToeBoard {
     display: inline-flex;
-    width: min(70vh,70%); /* Total width of the board */
+    width: min(60vh,60%); /* Total width of the board */
     aspect-ratio:  1/1; /* Keep the board square */
     margin: auto;
     justify-content: space-between;
