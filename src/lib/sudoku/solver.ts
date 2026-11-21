@@ -1,0 +1,245 @@
+/**
+ * Sudoku solver using Knuth's Algorithm X on the exact-cover formulation
+ * (https://en.wikipedia.org/wiki/Exact_cover#Sudoku).
+ *
+ * Port of the original Java solver (github.com/Bela4321/Sudoku). Same idea and
+ * row encoding; branch order is randomised, so puzzles with several solutions
+ * yield a random one. Differences from the Java version:
+ *  - branches on the constraint column with the fewest candidates (Knuth's
+ *    heuristic) instead of over every row, so the search is far smaller;
+ *  - covers/uncovers in place instead of copying the matrix each step.
+ *
+ * Grid convention: 9x9 array of numbers, 0 = empty, 1..9 = digit.
+ */
+
+export type Grid = number[][];
+export type Cell = { row: number; col: number };
+export type Rng = () => number;
+
+export type SolveResult =
+  | { status: "solved"; grid: Grid }
+  | { status: "invalid"; conflicts: Cell[] }
+  | { status: "unsolvable" };
+
+const N = 9;
+const ROWS = N * N * N; // 729 candidates: (row, col, value)
+const COLS = 4 * N * N; // 324 constraints
+
+// --- static constraint matrix (sparse) -------------------------------------
+
+/** candidate index -> its 4 constraint columns */
+const rowCols: Int16Array[] = [];
+/** constraint column -> candidate indices that satisfy it */
+const colRows: number[][] = Array.from({ length: COLS }, () => []);
+
+for (let r = 0; r < N; r++) {
+  for (let c = 0; c < N; c++) {
+    for (let v = 0; v < N; v++) {
+      const idx = candidateIndex(r, c, v);
+      const box = Math.floor(r / 3) * 3 + Math.floor(c / 3);
+      const cols = Int16Array.of(
+        N * r + c, //                    each cell holds one value
+        N * N + N * r + v, //            each value once per row
+        2 * N * N + N * c + v, //        each value once per column
+        3 * N * N + N * box + v, //      each value once per box
+      );
+      rowCols[idx] = cols;
+      for (const col of cols) colRows[col].push(idx);
+    }
+  }
+}
+
+function candidateIndex(row: number, col: number, value0: number): number {
+  return N * N * row + N * col + value0;
+}
+
+// --- input validation --------------------------------------------------------
+
+export function assertGridShape(grid: Grid): void {
+  if (!Array.isArray(grid) || grid.length !== N) {
+    throw new TypeError("grid must have 9 rows");
+  }
+  for (const row of grid) {
+    if (!Array.isArray(row) || row.length !== N) {
+      throw new TypeError("each grid row must have 9 cells");
+    }
+    for (const cell of row) {
+      if (!Number.isInteger(cell) || cell < 0 || cell > 9) {
+        throw new TypeError("cells must be integers 0..9 (0 = empty)");
+      }
+    }
+  }
+}
+
+/** Every given that shares a row, column or box with an equal given. */
+export function findConflicts(grid: Grid): Cell[] {
+  assertGridShape(grid);
+  const bad = new Set<number>();
+  for (let r1 = 0; r1 < N; r1++) {
+    for (let c1 = 0; c1 < N; c1++) {
+      const v = grid[r1][c1];
+      if (v === 0) continue;
+      for (let r2 = 0; r2 < N; r2++) {
+        for (let c2 = 0; c2 < N; c2++) {
+          if ((r1 === r2 && c1 === c2) || grid[r2][c2] !== v) continue;
+          const sameBox =
+            Math.floor(r1 / 3) === Math.floor(r2 / 3) &&
+            Math.floor(c1 / 3) === Math.floor(c2 / 3);
+          if (r1 === r2 || c1 === c2 || sameBox) bad.add(r1 * N + c1);
+        }
+      }
+    }
+  }
+  return [...bad].sort((a, b) => a - b).map((i) => ({ row: Math.floor(i / N), col: i % N }));
+}
+
+// --- Algorithm X -------------------------------------------------------------
+
+class ExactCover {
+  private colActive = new Uint8Array(COLS).fill(1);
+  private colSize = new Int16Array(COLS).fill(N);
+  /** how many selected candidates currently exclude this candidate */
+  private rowRemoved = new Uint8Array(ROWS);
+  private activeCols = COLS;
+  readonly chosen: number[] = [];
+
+  private rng: Rng;
+
+  constructor(rng: Rng) {
+    this.rng = rng;
+  }
+
+  isAvailable(idx: number): boolean {
+    return this.rowRemoved[idx] === 0;
+  }
+
+  select(idx: number): void {
+    this.chosen.push(idx);
+    for (const col of rowCols[idx]) {
+      this.colActive[col] = 0;
+      this.activeCols--;
+      for (const other of colRows[col]) {
+        if (this.rowRemoved[other]++ === 0) {
+          for (const c2 of rowCols[other]) this.colSize[c2]--;
+        }
+      }
+    }
+  }
+
+  unselect(idx: number): void {
+    this.chosen.pop();
+    const cols = rowCols[idx];
+    for (let i = cols.length - 1; i >= 0; i--) {
+      const col = cols[i];
+      const rows = colRows[col];
+      for (let j = rows.length - 1; j >= 0; j--) {
+        const other = rows[j];
+        if (--this.rowRemoved[other] === 0) {
+          for (const c2 of rowCols[other]) this.colSize[c2]++;
+        }
+      }
+      this.colActive[col] = 1;
+      this.activeCols++;
+    }
+  }
+
+  /** Calls onSolution for each solution; stop early by returning true. */
+  search(onSolution: () => boolean): boolean {
+    if (this.activeCols === 0) return onSolution();
+
+    // pick the active constraint with the fewest candidates (random tie-break)
+    let best = -1;
+    let bestSize = Infinity;
+    let ties = 0;
+    for (let col = 0; col < COLS; col++) {
+      if (!this.colActive[col]) continue;
+      const size = this.colSize[col];
+      if (size < bestSize) {
+        best = col;
+        bestSize = size;
+        ties = 1;
+        if (size === 0) return false; // dead end
+      } else if (size === bestSize && this.rng() * ++ties < 1) {
+        best = col;
+      }
+    }
+
+    const options = colRows[best].filter((idx) => this.rowRemoved[idx] === 0);
+    shuffle(options, this.rng);
+    for (const idx of options) {
+      this.select(idx);
+      const stop = this.search(onSolution);
+      this.unselect(idx);
+      if (stop) return true;
+    }
+    return false;
+  }
+}
+
+function shuffle<T>(arr: T[], rng: Rng): void {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+function setup(grid: Grid, rng: Rng): ExactCover | null {
+  const x = new ExactCover(rng);
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const v = grid[r][c];
+      if (v === 0) continue;
+      const idx = candidateIndex(r, c, v - 1);
+      if (!x.isAvailable(idx)) return null; // contradicts another given
+      x.select(idx);
+    }
+  }
+  return x;
+}
+
+function toGrid(chosen: number[]): Grid {
+  const grid: Grid = Array.from({ length: N }, () => Array(N).fill(0));
+  for (const idx of chosen) {
+    const row = Math.floor(idx / (N * N));
+    const col = Math.floor((idx % (N * N)) / N);
+    grid[row][col] = (idx % N) + 1;
+  }
+  return grid;
+}
+
+export function solve(grid: Grid, rng: Rng = Math.random): SolveResult {
+  const conflicts = findConflicts(grid);
+  if (conflicts.length > 0) return { status: "invalid", conflicts };
+
+  const x = setup(grid, rng);
+  if (!x) return { status: "unsolvable" };
+  let result: Grid | null = null;
+  x.search(() => {
+    result = toGrid(x.chosen);
+    return true;
+  });
+  return result ? { status: "solved", grid: result } : { status: "unsolvable" };
+}
+
+/** Number of solutions, counting at most `limit` (e.g. 2 to test uniqueness). */
+export function countSolutions(grid: Grid, limit = 2): number {
+  if (findConflicts(grid).length > 0) return 0;
+  const x = setup(grid, Math.random);
+  if (!x) return 0;
+  let count = 0;
+  x.search(() => ++count >= limit);
+  return count;
+}
+
+// --- helpers -------------------------------------------------------------
+
+/** Parses an 81-char string; digits 1-9 are givens, anything else is empty. */
+export function parseGrid(s: string): Grid {
+  if (s.length !== N * N) throw new TypeError("expected 81 characters");
+  return Array.from({ length: N }, (_, r) =>
+    Array.from({ length: N }, (_, c) => {
+      const ch = s[r * N + c];
+      return ch >= "1" && ch <= "9" ? Number(ch) : 0;
+    }),
+  );
+}
