@@ -1,3 +1,5 @@
+import { solve } from "../../lib/sudoku/solver";
+
 function CallSolverAPI() {
   const form = document.getElementById("sudokuInput") as HTMLFormElement;
   form.addEventListener("submit", function (e) {
@@ -25,39 +27,24 @@ function CallSolverAPI() {
       alert(validity);
       return;
     }
-    //call solver api
-    const sudokuString = matrixToString(matrix);
-    fetchData(sudokuString);
+    // solve in the browser (no server needed)
+    const grid = matrix.map((row) => row.map((v) => (isNaN(v) ? 0 : v)));
+    const started = performance.now();
+    let outcome;
+    try {
+      outcome = solve(grid);
+    } catch {
+      if (result) result.innerText = "Please use only the numbers 1 to 9";
+      return;
+    }
+    const ms = Math.round(performance.now() - started);
+    if (outcome.status === "solved") {
+      displaySolution(outcome.grid);
+      if (result) result.innerText = "Solved in " + ms + "ms";
+    } else if (result) {
+      result.innerText = "This sudoku has no solution";
+    }
   });
-}
-
-async function fetchData(sudokuString: string) {
-  const url =
-    "https://h2151j6tz7.execute-api.us-east-2.amazonaws.com/default/ServerlessSudokuApi?sudoku=" +
-    sudokuString;
-  try {
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      console.log(response);
-      throw new Error("Network response was not ok");
-    }
-
-    const data = await response.json(); // Parse the response as JSON
-
-    // Handle the JSON data
-    console.log(data);
-
-    displaySolution(data.sudoku);
-    //display message
-    const result = document.getElementById("result");
-    if (result) {
-      result.innerText = data.message;
-    }
-  } catch (error) {
-    // Handle errors
-    console.error("There was a problem with the fetch operation:", error);
-  }
 }
 
 function displaySolution(matrix: number[][]) {
@@ -72,21 +59,6 @@ function displaySolution(matrix: number[][]) {
       }
     }
   }
-}
-
-function matrixToString(matrix: number[][]) {
-  let string = "";
-  for (let row of matrix) {
-    for (let cell of row) {
-      if (isNaN(cell)) {
-        string += ".";
-      } else {
-        string += cell;
-      }
-    }
-  }
-  console.log(string);
-  return string;
 }
 
 function isValidSudoku(board: number[][]) {
