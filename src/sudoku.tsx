@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { explainFill, findConflicts, nextStep, parseGrid, solve, type Grid } from "./lib/sudoku/solver";
 import examples from "./lib/sudoku/examples.json";
@@ -25,8 +25,8 @@ function cellClass(i: number, mark: Mark | undefined, conflict: boolean, fresh: 
   const c = i % 9;
   return [
     "size-full min-w-0 border-0 bg-white p-0 text-center text-[clamp(1.1rem,4.8vw,1.6rem)] tabular-nums caret-plum outline-none transition-colors duration-300 focus:bg-lilac-deep",
-    mark === "solved" ? "text-plum" : mark === "step" ? "font-medium text-plum" : "font-medium text-ink",
-    conflict ? "bg-red-100 text-red-700" : fresh ? "bg-plum/25" : mark === "step" ? "bg-plum/10" : "",
+    mark === "solved" || mark === "step" ? "text-plum" : "font-medium text-ink",
+    conflict ? "bg-red-100 text-red-700" : fresh ? "bg-plum/25 ring-2 ring-inset ring-plum" : "",
     c === 2 || c === 5 ? "border-r-2 border-r-ink" : "",
     r === 2 || r === 5 ? "border-b-2 border-b-ink" : "",
   ].join(" ");
@@ -42,6 +42,17 @@ function SudokuApp() {
   // the grid as it was before Solve, so the solve can be taken back
   const [before, setBefore] = useState<{ cells: string[]; marks: (Mark | undefined)[] } | null>(null);
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // the highlight on a cell the next step filled lasts until the next click anywhere
+  useEffect(() => {
+    if (fresh.size === 0) return;
+    const clear = () => setFresh(new Set());
+    const t = setTimeout(() => document.addEventListener("pointerdown", clear, { once: true }));
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("pointerdown", clear);
+    };
+  }, [fresh]);
 
   const load = (next: string[], nextMarks: (Mark | undefined)[], text = "") => {
     setCells(next);
@@ -190,8 +201,7 @@ function SudokuApp() {
         </div>
         <ul className="grid gap-1.5 text-sm text-muted lg:order-last">
           <li><span className="font-medium text-ink">Black</span>: the puzzle</li>
-          <li><span className="rounded bg-plum/10 px-1 font-medium text-plum">Tinted purple</span>: forced, found by the next step</li>
-          <li><span className="font-medium text-plum">Purple</span>: found by the solver</li>
+          <li><span className="font-medium text-plum">Purple</span>: filled in by the solver or the next step</li>
         </ul>
       </div>
     </div>
