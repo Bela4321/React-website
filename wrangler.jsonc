@@ -2,17 +2,17 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "website",
   "compatibility_date": "2026-11-15",
-  // Static site only: Cloudflare serves the Vite build, no Worker code runs.
+  // Static files from the Vite build; the small worker in front only redirects www.
+  "main": "worker/index.ts",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "404-page"
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "run_worker_first": true
   },
-  // For now the site lives at https://website.belaschinke.workers.dev.
-  // Once belaschinke.com is on Cloudflare, switch to:
-  //   "workers_dev": false,
-  //   "routes": [
-  //     { "pattern": "belaschinke.com", "custom_domain": true },
-  //     { "pattern": "www.belaschinke.com", "custom_domain": true }
-  //   ]
-  "workers_dev": true
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "belaschinke.com", "custom_domain": true },
+    { "pattern": "www.belaschinke.com", "custom_domain": true }
+  ]
 }

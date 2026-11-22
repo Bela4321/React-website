@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 // Game server: a Cloudflare Worker (repo website-games). One room per name,
 // two players, the server sends the full state after every change.
 const SERVER: string =
-  import.meta.env.VITE_GAMES_URL ?? "wss://games.belaschinke.workers.dev";
+  import.meta.env.VITE_GAMES_URL ?? "wss://games.belaschinke.com";
 /** the same server over plain HTTP, for the lobby */
 export const GAMES_HTTP = SERVER.replace(/^ws/, "http");
 
