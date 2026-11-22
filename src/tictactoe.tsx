@@ -127,10 +127,16 @@ function TicTacToeApp() {
   const open = lobby?.open ?? [];
 
   return (
-    <div className="grid max-w-2xl gap-10">
-      {open.length > 0 && (
-        <section aria-labelledby="open-h">
-          <h2 id="open-h" className="text-xl font-medium">Open rooms</h2>
+    <div className="grid gap-12 lg:grid-cols-[minmax(0,36rem)_1fr] lg:gap-16">
+      <div className="grid content-start gap-10">
+      <section aria-labelledby="open-h">
+        <h2 id="open-h" className="text-xl font-medium">Open rooms</h2>
+        {open.length === 0 ? (
+          <p className="mt-1 text-muted">
+            {lobby ? "Nobody is waiting right now. Make a public room below and it shows up here." : "Looking for open rooms…"}
+          </p>
+        ) : (
+          <>
           <p className="mt-1 text-muted">Someone is waiting for a second player.</p>
           <ul className="-mx-5 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-3 sm:mx-0 sm:px-0">
             {open.map((o) => (
@@ -150,8 +156,9 @@ function TicTacToeApp() {
               </li>
             ))}
           </ul>
-        </section>
-      )}
+          </>
+        )}
+      </section>
 
       <form onSubmit={submit} noValidate className="grid gap-5 sm:max-w-md">
         <label className="field">
@@ -173,7 +180,6 @@ function TicTacToeApp() {
             type="text"
             autoComplete="off"
             autoCapitalize="none"
-            inputMode="numeric"
             maxLength={32}
             value={room}
             placeholder="Leave empty for a new room"
@@ -215,6 +221,13 @@ function TicTacToeApp() {
           {creating ? "Create the room" : "Join the room"}
         </button>
       </form>
+      </div>
+      {/* the board you are about to play on, waiting */}
+      <div className="hidden aspect-square w-full max-w-[22rem] grid-cols-3 gap-2.5 self-start opacity-80 lg:grid" aria-hidden="true">
+        {["X", "", "O", "", "X", "", "O", "", ""].map((c, i) => (
+          <span key={i} className={`grid place-items-center rounded-2xl bg-lilac font-serif text-6xl leading-none ${c === "X" ? "text-plum" : "text-ink"}`}>{c}</span>
+        ))}
+      </div>
     </div>
   );
 }

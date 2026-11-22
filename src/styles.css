@@ -1,9 +1,13 @@
 @import "tailwindcss";
 @import "@fontsource-variable/hanken-grotesk";
+@import "@fontsource/instrument-serif/latin-400.css";
+@import "@fontsource/instrument-serif/latin-400-italic.css";
 
 /* One palette for the whole site: white ground, one purple, pastel lavender for surfaces. */
 @theme {
   --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  /* the second voice: place names, years, the big words */
+  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
   --color-ink: #1d1829;
   --color-muted: #5e5770;
   --color-line: #e8e3f1;
@@ -18,6 +22,9 @@
   html { scroll-behavior: smooth; scroll-padding-top: 5rem; }
   body { @apply bg-white font-sans text-ink antialiased; }
   ::selection { @apply bg-plum text-white; }
+  p { text-wrap: pretty; }
+  h1, h2, h3 { text-wrap: balance; }
+  html { scrollbar-color: var(--color-plum-soft) white; }
   :focus-visible { @apply outline-2 outline-offset-2 outline-plum; }
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
@@ -34,7 +41,7 @@
   .mini-sudoku > span:nth-child(9n+3), .mini-sudoku > span:nth-child(9n+6) { box-shadow: 1px 0 0 var(--color-ink); }
   .mini-sudoku > span:nth-child(n+19):nth-child(-n+27), .mini-sudoku > span:nth-child(n+46):nth-child(-n+54) { box-shadow: 0 1px 0 var(--color-ink); }
   .mini-sudoku > span:nth-child(21), .mini-sudoku > span:nth-child(24), .mini-sudoku > span:nth-child(48), .mini-sudoku > span:nth-child(51) { box-shadow: 1px 1px 0 var(--color-ink); }
-  .mini-ttt > span { @apply grid place-items-center rounded-xl bg-white text-4xl text-ink ring-1 ring-plum/10; }
+  .mini-ttt > span { @apply grid place-items-center rounded-xl bg-white font-serif text-5xl text-ink ring-1 ring-plum/10; }
   .mini-ttt > span.is-line { @apply bg-plum text-white; }
 
   /* the first screen comes in once */
@@ -56,18 +63,15 @@
 @utility btn-primary { @apply btn bg-plum text-white hover:-translate-y-0.5 hover:bg-plum-dark hover:shadow-lg hover:shadow-plum/20; }
 @utility btn-quiet { @apply btn bg-lilac text-ink hover:-translate-y-0.5 hover:bg-lilac-deep; }
 @utility link { @apply font-medium text-plum underline decoration-plum-soft decoration-2 underline-offset-4 transition-colors hover:decoration-plum; }
-@utility eyebrow { @apply text-sm font-medium text-plum; }
-@utility title-2 { @apply text-4xl font-normal tracking-tight sm:text-5xl; }
+@utility title-2 { @apply font-serif text-5xl leading-none tracking-tight sm:text-7xl; }
 @utility field { @apply grid gap-1.5 text-sm font-medium; }
-@utility input { @apply h-11 w-full rounded-xl border border-line bg-white px-4 text-base font-normal text-ink placeholder:text-muted/70 transition focus:border-plum focus:outline-none focus:ring-4 focus:ring-plum/15; }
-@utility value { @apply grid gap-1 py-5 sm:grid-cols-[minmax(0,16rem)_1fr] sm:items-baseline sm:gap-6; }
-@utility value__name { @apply text-xl font-medium sm:text-2xl; }
-@utility value__line { @apply text-muted; }
-@utility stop { @apply relative grid gap-5 pl-10 before:absolute before:top-2 before:left-0 before:size-[15px] before:rounded-full before:border-4 before:border-white before:bg-plum before:ring-1 before:ring-plum/30 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-10; }
-@utility stop__title { @apply mt-1 text-2xl font-medium tracking-tight sm:text-3xl; }
-@utility stop__body { @apply mt-3 max-w-xl text-lg text-muted; }
-@utility stop__img { @apply aspect-[3/2] w-full max-w-sm rounded-2xl object-cover sm:w-64 lg:w-80 transition duration-500 ease-out hover:scale-[1.02]; }
-@utility demo { @apply flex flex-col overflow-hidden rounded-3xl bg-white ring-1 ring-plum/10 transition duration-300 ease-out hover:-translate-y-1 hover:shadow-xl hover:shadow-plum/10; }
-@utility demo__art { @apply grid h-64 place-items-center bg-gradient-to-b from-lilac-deep/60 to-white sm:h-72; }
+@utility input { @apply h-11 w-full rounded-xl border border-line bg-white px-4 text-base font-normal text-ink placeholder:text-muted transition focus:border-plum focus:outline-none focus:ring-4 focus:ring-plum/15; }
 @utility mini-sudoku { @apply grid size-56 grid-cols-9 gap-px overflow-hidden rounded-lg border-2 border-ink bg-ink/80 text-sm tabular-nums sm:size-60; }
 @utility mini-ttt { @apply grid size-52 grid-cols-3 gap-2 sm:size-56; }
+
+/* the life line: the place name is the event */
+@utility place { @apply font-serif leading-[0.9] tracking-tight text-ink; }
+/* a demo tile: no lift, the frame answers instead */
+@utility demo { @apply flex flex-col overflow-hidden rounded-3xl bg-white ring-1 ring-plum/10 transition-[box-shadow,ring-color] duration-300 ease-out hover:ring-2 hover:ring-plum/40; }
+@utility demo-art { @apply grid h-60 place-items-center border-b border-plum/10 bg-lilac/60; }
+@utility nav-link { @apply rounded-lg px-2 py-2 text-muted transition-colors hover:bg-lilac hover:text-ink aria-[current=true]:text-ink aria-[current=true]:bg-lilac sm:px-3; }

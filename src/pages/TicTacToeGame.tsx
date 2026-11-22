@@ -163,7 +163,7 @@ export default function TicTacToeGame({ nickname, roomNumber, isPublic = false, 
               key={i}
               role="img"
               aria-label={`${where}, ${cell}`}
-              className={`grid place-items-center rounded-2xl text-[clamp(3rem,14vw,4.5rem)] leading-none transition-colors ${
+              className={`grid place-items-center rounded-2xl font-serif text-[clamp(3.5rem,16vw,5.5rem)] leading-none transition-colors ${
                 room.line?.includes(i) ? "bg-plum text-white" : cell === room.you ? "bg-lilac-deep text-plum" : "bg-lilac text-ink"
               }`}
             >
