@@ -243,3 +243,62 @@ export function parseGrid(s: string): Grid {
     }),
   );
 }
+
+// --- next step: the forced fills ----------------------------------------------
+
+export type Constraint = "cell" | "row" | "column" | "box";
+export type ForcedFill = Cell & { value: number; because: Constraint };
+
+export type NextStepResult =
+  | { status: "fills"; fills: ForcedFill[] }
+  | { status: "none" } //            no constraint is down to one candidate
+  | { status: "stuck"; cell?: Cell } // a constraint has no candidate left
+  | { status: "invalid"; conflicts: Cell[] }
+  | { status: "complete" };
+
+/**
+ * The fills the exact-cover matrix forces right now: every constraint column
+ * left with exactly one candidate row. In sudoku words, a cell with one
+ * possible digit ("cell"), or a digit with one possible place in a row,
+ * column or box. Each cell is listed once.
+ */
+export function nextStep(grid: Grid): NextStepResult {
+  const conflicts = findConflicts(grid);
+  if (conflicts.length) return { status: "invalid", conflicts };
+  if (grid.every((row) => row.every((v) => v !== 0))) return { status: "complete" };
+
+  // candidates still possible after the givens are placed
+  const alive = new Uint8Array(ROWS).fill(1);
+  const satisfied = new Uint8Array(COLS);
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const v = grid[r][c];
+      if (!v) continue;
+      for (const col of rowCols[candidateIndex(r, c, v - 1)]) {
+        satisfied[col] = 1;
+        for (const other of colRows[col]) alive[other] = 0;
+      }
+    }
+  }
+
+  const kinds: Constraint[] = ["cell", "row", "column", "box"];
+  const fills = new Map<number, ForcedFill>();
+  for (let col = 0; col < COLS; col++) {
+    if (satisfied[col]) continue;
+    const left = colRows[col].filter((idx) => alive[idx]);
+    if (left.length === 0) {
+      const cell = col < N * N ? { row: Math.floor(col / N), col: col % N } : undefined;
+      return { status: "stuck", cell };
+    }
+    if (left.length !== 1) continue;
+    const idx = left[0];
+    const row = Math.floor(idx / (N * N));
+    const c = Math.floor(idx / N) % N;
+    const cellKey = row * N + c;
+    if (!fills.has(cellKey)) {
+      fills.set(cellKey, { row, col: c, value: (idx % N) + 1, because: kinds[Math.floor(col / (N * N))] });
+    }
+  }
+  if (fills.size === 0) return { status: "none" };
+  return { status: "fills", fills: [...fills.values()] };
+}

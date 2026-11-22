@@ -4,6 +4,8 @@ import React, { useEffect, useRef, useState } from "react";
 // two players, the server sends the full state after every change.
 const SERVER: string =
   import.meta.env.VITE_GAMES_URL ?? "wss://games.belaschinke.workers.dev";
+/** the same server over plain HTTP, for the lobby */
+export const GAMES_HTTP = SERVER.replace(/^ws/, "http");
 
 type Mark = "X" | "O";
 type RoomState = {
@@ -21,6 +23,8 @@ type RoomState = {
 type Props = {
   nickname: string;
   roomNumber: string;
+  /** list the room in the lobby while waiting (only counts when the room is new) */
+  isPublic?: boolean;
   onLeave: () => void;
 };
 
@@ -41,7 +45,7 @@ function playerId(): string {
   }
 }
 
-export default function TicTacToeGame({ nickname, roomNumber, onLeave }: Props) {
+export default function TicTacToeGame({ nickname, roomNumber, isPublic = false, onLeave }: Props) {
   const [room, setRoom] = useState<RoomState | null>(null);
   const [notice, setNotice] = useState("Connecting…");
   const socket = useRef<WebSocket | null>(null);
@@ -55,7 +59,7 @@ export default function TicTacToeGame({ nickname, roomNumber, onLeave }: Props) 
     const connect = () => {
       const url =
         `${SERVER}/tictactoe/${encodeURIComponent(String(roomNumber))}` +
-        `?name=${encodeURIComponent(nickname)}&pid=${pid}`;
+        `?name=${encodeURIComponent(nickname)}&pid=${pid}${isPublic ? "&public=1" : ""}`;
       const ws = new WebSocket(url);
       socket.current = ws;
       ws.onopen = () => {
@@ -99,7 +103,7 @@ export default function TicTacToeGame({ nickname, roomNumber, onLeave }: Props) 
       clearInterval(ping);
       socket.current?.close(1000); // a deliberate leave frees the seat
     };
-  }, [nickname, roomNumber]);
+  }, [nickname, roomNumber, isPublic]);
 
   const send = (msg: object) => {
     if (socket.current?.readyState === WebSocket.OPEN) socket.current.send(JSON.stringify(msg));
@@ -108,9 +112,9 @@ export default function TicTacToeGame({ nickname, roomNumber, onLeave }: Props) 
 
   if (!room) {
     return (
-      <div className="app">
-        <p className="status" role="status">{notice}</p>
-        <button className="btn btn--secondary" type="button" onClick={leave}>Pick another room</button>
+      <div className="grid justify-items-start gap-4">
+        <p className="text-lg text-muted" role="status">{notice}</p>
+        <button className="btn-quiet" type="button" onClick={leave}>Pick another room</button>
       </div>
     );
   }
@@ -141,40 +145,49 @@ export default function TicTacToeGame({ nickname, roomNumber, onLeave }: Props) 
   }
 
   return (
-    <div className="app">
-      <div className="game-info">
-        <p className="t-lead" role="status">{status}</p>
-        <p className="status">
-          Room {roomNumber}, you play {room.you}
-          {opponent ? ` against ${opponent.name}` : ""}.
-          {notice ? ` ${notice}` : ""}
-        </p>
-      </div>
-      <div className="ttt" role="group" aria-label="Board">
-        {room.board.map((cell, i) =>
-          cell === null ? (
+    <div className="grid gap-8 lg:grid-cols-[auto_1fr] lg:items-start lg:gap-12">
+      <div className="grid aspect-square w-full max-w-[24rem] grid-cols-3 gap-2.5" role="group" aria-label="Board">
+        {room.board.map((cell, i) => {
+          const where = `Row ${Math.floor(i / 3) + 1}, column ${(i % 3) + 1}`;
+          return cell === null ? (
             <button
               key={i}
               type="button"
               disabled={!myTurn}
-              aria-label={`Row ${Math.floor(i / 3) + 1}, column ${(i % 3) + 1}, empty`}
+              aria-label={`${where}, empty`}
               onClick={() => send({ type: "move", cell: i })}
+              className="rounded-2xl bg-lilac transition enabled:cursor-pointer enabled:hover:bg-lilac-deep disabled:cursor-default"
             />
           ) : (
-            <span key={i} className={room.line?.includes(i) ? "is-line" : undefined} aria-label={`Row ${Math.floor(i / 3) + 1}, column ${(i % 3) + 1}, ${cell}`} role="img">
+            <span
+              key={i}
+              role="img"
+              aria-label={`${where}, ${cell}`}
+              className={`grid place-items-center rounded-2xl text-[clamp(3rem,14vw,4.5rem)] leading-none transition-colors ${
+                room.line?.includes(i) ? "bg-plum text-white" : cell === room.you ? "bg-lilac-deep text-plum" : "bg-lilac text-ink"
+              }`}
+            >
               {cell}
             </span>
-          ),
-        )}
+          );
+        })}
       </div>
-      <div className="btn-row">
+      <div className="grid content-start gap-5 lg:max-w-sm">
+        <div>
+          <p className="text-2xl font-medium" role="status">{status}</p>
+          <p className="mt-2 text-muted">
+            Room {roomNumber}. You play <span className="font-medium text-plum">{room.you}</span>
+            {opponent ? ` against ${opponent.name}` : ""}.
+          </p>
+          {notice && <p className="mt-2 text-red-700">{notice}</p>}
+        </div>
         {room.status === "over" &&
           (room.rematch.includes(room.you) ? (
-            <p className="status">Waiting for {opponent?.name} to accept the rematch.</p>
+            <p className="text-muted">Waiting for {opponent?.name} to accept the rematch.</p>
           ) : (
-            <button className="btn btn--primary" type="button" onClick={() => send({ type: "rematch" })}>Play a rematch</button>
+            <button className="btn-primary" type="button" onClick={() => send({ type: "rematch" })}>Play a rematch</button>
           ))}
-        <button className="btn btn--secondary" type="button" onClick={leave}>Leave the room</button>
+        <button className="btn-quiet" type="button" onClick={leave}>Leave the room</button>
       </div>
     </div>
   );

@@ -226,3 +226,43 @@ test("minimal unique puzzles (no clue can be removed) are solved validly", () =>
     assert.equal(countSolutions(puzzle, 2), 1);
   }
 });
+
+test("nextStep: forced fills are always part of the solution", async () => {
+  const { nextStep } = await import("../src/lib/sudoku/solver.ts");
+  const puzzle = parseGrid("53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79");
+  const solution = parseGrid("534678912672195348198342567859761423426853791713924856961537284287419635345286179");
+  // apply next steps until nothing is forced; every fill must match the unique solution
+  const grid = puzzle.map((r) => r.slice());
+  for (let round = 0; round < 81; round++) {
+    const step = nextStep(grid);
+    if (step.status !== "fills") {
+      assert.ok(step.status === "complete" || step.status === "none", step.status);
+      break;
+    }
+    for (const f of step.fills) {
+      assert.equal(f.value, solution[f.row][f.col], `fill at ${f.row},${f.col}`);
+      assert.equal(grid[f.row][f.col], 0);
+      grid[f.row][f.col] = f.value;
+    }
+  }
+  // this easy puzzle is solved by singles alone
+  assert.deepEqual(grid, solution);
+});
+
+test("nextStep: reports conflicts, dead ends and complete grids", async () => {
+  const { nextStep } = await import("../src/lib/sudoku/solver.ts");
+  const dup = parseGrid("11" + ".".repeat(79));
+  assert.equal(nextStep(dup).status, "invalid");
+  const full = parseGrid("534678912672195348198342567859761423426853791713924856961537284287419635345286179");
+  assert.equal(nextStep(full).status, "complete");
+  // row 0 holds 1..8 in columns 1..8 and column 0 already has a 9 below: cell (0,0) has no candidate
+  const dead = parseGrid(".12345678" + "9" + ".".repeat(71));
+  assert.equal(nextStep(dead).status, "stuck");
+  assert.equal(nextStep(parseGrid(".".repeat(81))).status, "none");
+});
+
+test("stored examples each have exactly one solution", async () => {
+  const { default: examples } = await import("../src/lib/sudoku/examples.json", { with: { type: "json" } });
+  assert.ok(examples.length >= 12);
+  for (const s of examples as string[]) assert.equal(countSolutions(parseGrid(s), 2), 1, s);
+});
