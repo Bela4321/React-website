@@ -266,3 +266,38 @@ test("stored examples each have exactly one solution", async () => {
   assert.ok(examples.length >= 12);
   for (const s of examples as string[]) assert.equal(countSolutions(parseGrid(s), 2), 1, s);
 });
+
+test("explainFill names the reasons, and they are true", async () => {
+  const { nextStep, explainFill } = await import("../src/lib/sudoku/solver.ts");
+  const examples = (await import("../src/lib/sudoku/examples.json", { with: { type: "json" } })).default as string[];
+  let kinds = new Set<string>();
+  for (const s of examples) {
+    const grid = parseGrid(s);
+    const step = nextStep(grid);
+    if (step.status !== "fills") continue;
+    for (const f of step.fills) {
+      kinds.add(f.because);
+      const text = explainFill(grid, f);
+      assert.match(text, new RegExp(`^The ${f.value} at row ${f.row + 1}, column ${f.col + 1}: `));
+      // every row or column it blames really holds the digit (or, for a naked single, the listed digits)
+      if (f.because !== "cell") {
+        for (const m of text.matchAll(/row (\d)(?!,)/g)) {
+          const r = Number(m[1]) - 1;
+          if (r !== f.row) assert.ok(grid[r].includes(f.value), `${text}: row ${r + 1} lacks ${f.value}`);
+        }
+      }
+    }
+  }
+  assert.ok(kinds.size >= 2, [...kinds].join());
+});
+
+test("explainFill for a lone digit in a cell lists the eight others", async () => {
+  const { nextStep, explainFill } = await import("../src/lib/sudoku/solver.ts");
+  // row 1 holds 1..8, so cell (1,9) can only be 9
+  const grid = parseGrid("12345678." + ".".repeat(72));
+  const step = nextStep(grid);
+  assert.equal(step.status, "fills");
+  const f = step.status === "fills" ? step.fills.find((x) => x.row === 0 && x.col === 8)! : null!;
+  assert.equal(f.value, 9);
+  assert.match(explainFill(grid, f), /row 1 already has 1, 2, 3, 4, 5, 6, 7 and 8\. That leaves only 9\./);
+});

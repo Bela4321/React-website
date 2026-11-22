@@ -302,3 +302,70 @@ export function nextStep(grid: Grid): NextStepResult {
   if (fills.size === 0) return { status: "none" };
   return { status: "fills", fills: [...fills.values()] };
 }
+
+// --- why a fill is forced ---------------------------------------------------------
+
+const BOX_NAMES = ["top-left", "top", "top-right", "left", "middle", "right", "bottom-left", "bottom", "bottom-right"];
+const boxOf = (r: number, c: number) => Math.floor(r / 3) * 3 + Math.floor(c / 3);
+
+function list(items: (string | number)[]): string {
+  if (items.length <= 1) return items.join("");
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+/**
+ * Explains a forced fill from nextStep() in plain words, tracing it back to the
+ * rows, columns and boxes that rule everything else out.
+ */
+export function explainFill(grid: Grid, f: ForcedFill): string {
+  const { row, col, value } = f;
+  const box = boxOf(row, col);
+  const inRow = (r: number, v: number) => grid[r].includes(v);
+  const inCol = (c: number, v: number) => grid.some((line) => line[c] === v);
+  const inBox = (b: number, v: number) => {
+    const r0 = Math.floor(b / 3) * 3;
+    const c0 = (b % 3) * 3;
+    for (let r = r0; r < r0 + 3; r++) for (let c = c0; c < c0 + 3; c++) if (grid[r][c] === v) return true;
+    return false;
+  };
+  const where = `row ${row + 1}, column ${col + 1}`;
+  const a = value === 8 ? "an" : "a"; // "an 8"
+
+  if (f.because === "cell") {
+    // every other digit is already in this cell's row, column or box
+    const others = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((d) => d !== value);
+    const byRow = others.filter((d) => inRow(row, d));
+    const byCol = others.filter((d) => !byRow.includes(d) && inCol(col, d));
+    const byBox = others.filter((d) => !byRow.includes(d) && !byCol.includes(d) && inBox(box, d));
+    const parts = [
+      byRow.length ? `row ${row + 1} already has ${list(byRow)}` : "",
+      byCol.length ? `column ${col + 1} adds ${list(byCol)}` : "",
+      byBox.length ? `the ${BOX_NAMES[box]} box adds ${list(byBox)}` : "",
+    ].filter(Boolean);
+    const joined = parts.length > 1 ? `${parts.slice(0, -1).join("; ")}; and ${parts[parts.length - 1]}` : parts[0];
+    return `The ${value} at ${where}: ${joined}. That leaves only ${value}.`;
+  }
+
+  // a digit with one place left in a row, column or box: name what blocks the other free cells
+  const unit =
+    f.because === "row"
+      ? { name: `row ${row + 1}`, cells: Array.from({ length: 9 }, (_, c) => [row, c] as const) }
+      : f.because === "column"
+        ? { name: `column ${col + 1}`, cells: Array.from({ length: 9 }, (_, r) => [r, col] as const) }
+        : {
+            name: `the ${BOX_NAMES[box]} box`,
+            cells: Array.from({ length: 9 }, (_, i) => [Math.floor(box / 3) * 3 + Math.floor(i / 3), (box % 3) * 3 + (i % 3)] as const),
+          };
+  const blockers = new Set<string>();
+  for (const [r, c] of unit.cells) {
+    if ((r === row && c === col) || grid[r][c]) continue;
+    // the reason this free cell can't take the digit
+    if (f.because !== "row" && inRow(r, value)) blockers.add(`row ${r + 1}`);
+    else if (f.because !== "column" && inCol(c, value)) blockers.add(`column ${c + 1}`);
+    else if (f.because !== "box" && inBox(boxOf(r, c), value)) blockers.add(`the ${BOX_NAMES[boxOf(r, c)]} box`);
+  }
+  const reason = blockers.size
+    ? `every other free cell is blocked, because ${list([...blockers])} already ${blockers.size === 1 ? "has" : "have"} ${a} ${value}`
+    : "it is the only free cell left";
+  return `The ${value} at ${where}: ${unit.name} needs ${a} ${value}, and ${reason}. So it must go here.`;
+}

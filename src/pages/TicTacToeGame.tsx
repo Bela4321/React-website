@@ -145,8 +145,8 @@ export default function TicTacToeGame({ nickname, roomNumber, isPublic = false, 
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[auto_1fr] lg:items-start lg:gap-12">
-      <div className="grid aspect-square w-full max-w-[24rem] grid-cols-3 gap-2.5" role="group" aria-label="Board">
+    <div className="grid gap-8 lg:grid-cols-[24rem_1fr] lg:items-start lg:gap-12">
+      <div className="grid aspect-square w-full max-w-[24rem] grid-cols-3 grid-rows-3 gap-2.5" role="group" aria-label="Board">
         {room.board.map((cell, i) => {
           const where = `Row ${Math.floor(i / 3) + 1}, column ${(i % 3) + 1}`;
           return cell === null ? (
@@ -156,14 +156,14 @@ export default function TicTacToeGame({ nickname, roomNumber, isPublic = false, 
               disabled={!myTurn}
               aria-label={`${where}, empty`}
               onClick={() => send({ type: "move", cell: i })}
-              className="rounded-2xl bg-lilac transition enabled:cursor-pointer enabled:hover:bg-lilac-deep disabled:cursor-default"
+              className="min-h-0 min-w-0 rounded-2xl bg-lilac transition enabled:cursor-pointer enabled:hover:bg-lilac-deep disabled:cursor-default"
             />
           ) : (
             <span
               key={i}
               role="img"
               aria-label={`${where}, ${cell}`}
-              className={`grid place-items-center rounded-2xl font-serif text-[clamp(3.5rem,16vw,5.5rem)] leading-none transition-colors ${
+              className={`grid min-h-0 min-w-0 place-items-center overflow-hidden rounded-2xl font-serif text-[clamp(3.5rem,16vw,5.5rem)] leading-none transition-colors ${
                 room.line?.includes(i) ? "bg-plum text-white" : cell === room.you ? "bg-lilac-deep text-plum" : "bg-lilac text-ink"
               }`}
             >

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { findConflicts, nextStep, parseGrid, solve, type Constraint, type Grid } from "./lib/sudoku/solver";
+import { explainFill, findConflicts, nextStep, parseGrid, solve, type Grid } from "./lib/sudoku/solver";
 import examples from "./lib/sudoku/examples.json";
 import "./styles.css";
 
@@ -8,12 +8,6 @@ const EMPTY = Array<string>(81).fill("");
 type Mark = "given" | "step" | "solved";
 type Status = { text: string; tone: "plain" | "good" | "bad" };
 
-const WHY: Record<Constraint, string> = {
-  cell: "the only digit left for its cell",
-  row: "the only place left in its row",
-  column: "the only place left in its column",
-  box: "the only place left in its box",
-};
 
 function toGrid(cells: string[]): Grid {
   return Array.from({ length: 9 }, (_, r) => cells.slice(r * 9, r * 9 + 9).map((v) => (v ? Number(v) : 0)));
@@ -93,22 +87,18 @@ function SudokuApp() {
     if (result.status === "none") {
       return setStatus({ text: "No digit is forced right now. From here the solver has to try options: press Solve.", tone: "plain" });
     }
+    // one digit at a time, with the reason it is forced
+    const f = result.fills[0];
+    const i = f.row * 9 + f.col;
     const next = cells.slice();
     const nextMarks = marks.slice();
-    for (const f of result.fills) {
-      next[f.row * 9 + f.col] = String(f.value);
-      nextMarks[f.row * 9 + f.col] = "step";
-    }
+    next[i] = String(f.value);
+    nextMarks[i] = "step";
     setCells(next);
     setMarks(nextMarks);
     setConflicts(new Set());
-    setFresh(new Set(result.fills.map((f) => f.row * 9 + f.col)));
-    const first = result.fills[0];
-    const n = result.fills.length;
-    setStatus({
-      text: `${n} ${n === 1 ? "digit is" : "digits are"} forced. For example the ${first.value} in row ${first.row + 1}, column ${first.col + 1}: ${WHY[first.because]}.`,
-      tone: "plain",
-    });
+    setFresh(new Set([i]));
+    setStatus({ text: explainFill(toGrid(cells), f), tone: "plain" });
   };
 
   const run = () => {

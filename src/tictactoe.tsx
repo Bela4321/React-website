@@ -73,15 +73,15 @@ function useRoomExists(room: string): boolean | null {
 function TicTacToeApp() {
   const [playing, setPlaying] = useState<Playing | null>(null);
   const [name, setName] = useState(() => load("ttt-name"));
-  const [room, setRoom] = useState("");
   const [isPublic, setIsPublic] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const [room, setRoom] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const lobby = useLobby(!playing);
   const roomId = room.trim().toLowerCase();
   const exists = useRoomExists(roomId);
-  const creating = !roomId || exists === false;
   // a suggested name nobody in the lobby is using; kept stable while it stays free
   const suggestion = useMemo(() => pickName(lobby?.names ?? []), [lobby?.names.join("|")]);
 
@@ -115,95 +115,44 @@ function TicTacToeApp() {
     }
   };
 
-  const submit = (e: React.FormEvent) => {
+  const join = (e: React.FormEvent) => {
     e.preventDefault();
-    if (roomId && !ROOM.test(roomId)) {
-      setError("Room names use letters, digits or dashes, up to 32 characters.");
-      return;
-    }
-    start(roomId, creating && isPublic);
+    if (!ROOM.test(roomId)) return setError("Room numbers use digits (letters and dashes work too), up to 32 characters.");
+    if (exists === false) return setError(`Nobody is in room ${roomId} right now. Check the number, or create a room instead.`);
+    start(roomId, false);
   };
 
   const open = lobby?.open ?? [];
 
   return (
-    <div className="grid gap-12 lg:grid-cols-[minmax(0,36rem)_1fr] lg:gap-16">
-      <div className="grid content-start gap-10">
-      <section aria-labelledby="open-h">
-        <h2 id="open-h" className="text-xl font-medium">Open rooms</h2>
-        {open.length === 0 ? (
-          <p className="mt-1 text-muted">
-            {lobby ? "Nobody is waiting right now. Make a public room below and it shows up here." : "Looking for open rooms…"}
-          </p>
-        ) : (
-          <>
-          <p className="mt-1 text-muted">Someone is waiting for a second player.</p>
-          <ul className="-mx-5 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-3 sm:mx-0 sm:px-0">
-            {open.map((o) => (
-              <li key={o.room} className="shrink-0 snap-start">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => start(o.room, false)}
-                  className="group grid w-44 gap-1 rounded-2xl bg-lilac p-4 text-left ring-1 ring-plum/10 transition hover:-translate-y-0.5 hover:bg-lilac-deep"
-                >
-                  <span className="text-sm text-muted">Room {o.room}</span>
-                  <span className="truncate font-medium">{o.host}</span>
-                  <span className="mt-2 text-sm font-medium text-plum">
-                    Join <span aria-hidden="true" className="inline-block transition-transform group-hover:translate-x-1">→</span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          </>
-        )}
-      </section>
+    <div className="grid max-w-4xl gap-10">
+      <label className="field max-w-md">
+        Your name
+        <input
+          className="input"
+          type="text"
+          autoComplete="nickname"
+          maxLength={24}
+          value={name}
+          placeholder={suggestion}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </label>
 
-      <form onSubmit={submit} noValidate className="grid gap-5 sm:max-w-md">
-        <label className="field">
-          Your name
-          <input
-            className="input"
-            type="text"
-            autoComplete="nickname"
-            maxLength={24}
-            value={name}
-            placeholder={suggestion}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </label>
-        <label className="field">
-          Room
-          <input
-            className="input"
-            type="text"
-            autoComplete="off"
-            autoCapitalize="none"
-            maxLength={32}
-            value={room}
-            placeholder="Leave empty for a new room"
-            aria-invalid={error ? true : undefined}
-            onChange={(e) => {
-              setRoom(e.target.value);
-              setError("");
-            }}
-          />
-          {error && <span className="font-normal text-red-700">{error}</span>}
-        </label>
-
-        {creating && (
+      <div className="grid gap-6 md:grid-cols-2">
+        <section aria-labelledby="create-h" className="grid content-start gap-5 rounded-3xl bg-lilac p-6 sm:p-8">
+          <h2 id="create-h" className="text-2xl font-medium">Create a room</h2>
           <fieldset className="grid gap-2">
-            <legend className="text-sm font-medium">Who can find the room</legend>
-            <div className="inline-grid grid-cols-2 rounded-xl bg-lilac p-1">
+            <legend className="sr-only">Who can find the room</legend>
+            <div className="grid grid-cols-2 rounded-xl bg-white/70 p-1">
               {[
                 { v: false, label: "Private" },
                 { v: true, label: "Public" },
               ].map((o) => (
                 <label
                   key={o.label}
-                  className={`cursor-pointer rounded-lg px-4 py-2 text-center font-medium transition ${
-                    isPublic === o.v ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink"
+                  className={`cursor-pointer rounded-lg px-4 py-2 text-center font-medium transition has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-plum ${
+                    isPublic === o.v ? "bg-plum text-white shadow-sm" : "text-muted hover:text-ink"
                   }`}
                 >
                   <input type="radio" name="visibility" className="sr-only" checked={isPublic === o.v} onChange={() => setIsPublic(o.v)} />
@@ -212,21 +161,69 @@ function TicTacToeApp() {
               ))}
             </div>
             <p className="text-sm text-muted">
-              {isPublic ? "Listed in open rooms until a second player joins." : "Only people you send the number to can join."}
+              {isPublic ? "Listed under open rooms until a second player joins." : "Only people you send the room number to can join."}
             </p>
           </fieldset>
-        )}
+          <button className="btn-primary justify-self-start" type="button" disabled={busy} onClick={() => start("", isPublic)}>
+            Create the room
+          </button>
+        </section>
 
-        <button className="btn-primary justify-self-start" type="submit" disabled={busy}>
-          {creating ? "Create the room" : "Join the room"}
-        </button>
-      </form>
-      </div>
-      {/* the board you are about to play on, waiting */}
-      <div className="hidden aspect-square w-full max-w-[22rem] grid-cols-3 gap-2.5 self-start opacity-80 lg:grid" aria-hidden="true">
-        {["X", "", "O", "", "X", "", "O", "", ""].map((c, i) => (
-          <span key={i} className={`grid place-items-center rounded-2xl bg-lilac font-serif text-6xl leading-none ${c === "X" ? "text-plum" : "text-ink"}`}>{c}</span>
-        ))}
+        <section aria-labelledby="join-h" className="grid content-start gap-5 rounded-3xl p-6 ring-1 ring-plum/15 sm:p-8">
+          <h2 id="join-h" className="text-2xl font-medium">Join a room</h2>
+          {open.length > 0 ? (
+            <div>
+              <p className="text-sm text-muted">Open rooms, someone is waiting:</p>
+              <ul className="-mx-1 mt-2 flex snap-x gap-2 overflow-x-auto px-1 pb-2">
+                {open.map((o) => (
+                  <li key={o.room} className="shrink-0 snap-start">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => start(o.room, false)}
+                      className="grid w-40 gap-0.5 rounded-2xl bg-lilac px-4 py-3 text-left transition hover:bg-lilac-deep"
+                    >
+                      <span className="truncate font-medium">{o.host}</span>
+                      <span className="text-sm text-muted">Room {o.room}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="text-sm text-muted">{lobby ? "No public rooms are open right now." : "Looking for open rooms…"}</p>
+          )}
+          {joining ? (
+            <form onSubmit={join} noValidate className="grid gap-3">
+              <label className="field">
+                Room number
+                <input
+                  className="input"
+                  type="text"
+                  autoFocus
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  maxLength={32}
+                  value={room}
+                  aria-invalid={error ? true : undefined}
+                  onChange={(e) => {
+                    setRoom(e.target.value);
+                    setError("");
+                  }}
+                />
+              </label>
+              {error && <p className="text-sm text-red-700">{error}</p>}
+              <div className="flex gap-3">
+                <button className="btn-primary" type="submit" disabled={busy || !roomId}>Join</button>
+                <button className="btn-quiet" type="button" onClick={() => { setJoining(false); setRoom(""); setError(""); }}>Cancel</button>
+              </div>
+            </form>
+          ) : (
+            <button className="btn-quiet justify-self-start" type="button" onClick={() => setJoining(true)}>
+              Enter a room number
+            </button>
+          )}
+        </section>
       </div>
     </div>
   );
