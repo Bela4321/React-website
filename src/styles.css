@@ -74,4 +74,3 @@
 /* a demo tile: no lift, the frame answers instead */
 @utility demo { @apply flex flex-col overflow-hidden rounded-3xl bg-white ring-1 ring-plum/10 transition-[box-shadow,ring-color] duration-300 ease-out hover:ring-2 hover:ring-plum/40; }
 @utility demo-art { @apply grid h-60 place-items-center border-b border-plum/10 bg-lilac/60; }
-@utility nav-link { @apply rounded-lg px-2 py-2 text-muted transition-colors hover:bg-lilac hover:text-ink aria-[current=true]:text-ink aria-[current=true]:bg-lilac sm:px-3; }
