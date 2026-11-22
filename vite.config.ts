@@ -1,7 +1,7 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 // Every page is a plain HTML file; <!-- @header --> and <!-- @footer --> pull in the
@@ -11,7 +11,7 @@ function partials(): Plugin {
     name: "partials",
     // "pre": the parts are in the page before Vite bundles its links and scripts
     transformIndexHtml: { order: "pre", handler(html) {
-      // partials may hold partials (the footer holds @legal), so expand twice
+      // partials may hold partials, so expand twice
       for (let i = 0; i < 2; i++) {
         html = html.replace(/<!-- @(\w+) -->/g, (_, name) =>
           readFileSync(resolve(__dirname, "partials", `${name}.html`), "utf8"),
@@ -29,8 +29,6 @@ const input: Record<string, string> = {
   notfound: resolve(__dirname, "404.html"),
 };
 for (const p of pages) input[p] = resolve(__dirname, p, "index.html");
-// the legal notice goes live once its address is filled in (impressum/index.html exists)
-if (readdirSync(__dirname).includes("impressum")) input.impressum = resolve(__dirname, "impressum/index.html");
 
 export default defineConfig({
   plugins: [partials(), react(), tailwindcss()],
