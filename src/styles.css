@@ -66,11 +66,16 @@
 @utility title-2 { @apply font-serif text-5xl leading-none tracking-tight sm:text-7xl; }
 @utility field { @apply grid gap-1.5 text-sm font-medium; }
 @utility input { @apply h-11 w-full rounded-xl border border-line bg-white px-4 text-base font-normal text-ink placeholder:text-muted transition focus:border-plum focus:outline-none focus:ring-4 focus:ring-plum/15; }
-@utility mini-sudoku { @apply grid size-56 grid-cols-9 gap-px overflow-hidden rounded-lg border-2 border-ink bg-ink/80 text-sm tabular-nums sm:size-60; }
+@utility mini-sudoku { @apply grid size-52 grid-cols-9 gap-px overflow-hidden rounded-lg border-2 border-ink bg-ink/80 text-sm tabular-nums sm:size-56; }
 @utility mini-ttt { @apply grid size-52 grid-cols-3 gap-2 sm:size-56; }
 
 /* the life line: the place name is the event */
 @utility place { @apply font-serif leading-[0.9] tracking-tight text-ink; }
 /* a demo tile: no lift, the frame answers instead */
 @utility demo { @apply flex flex-col overflow-hidden rounded-3xl bg-white ring-1 ring-plum/10 transition-[box-shadow,ring-color] duration-300 ease-out hover:ring-2 hover:ring-plum/40; }
-@utility demo-art { @apply grid h-60 place-items-center border-b border-plum/10 bg-lilac/60; }
+@utility demo-art { @apply grid h-64 place-items-center border-b border-plum/10 bg-lilac/60; }
+@utility section-title { @apply text-2xl font-medium tracking-tight text-ink sm:text-3xl; }
+
+/* the closing line points at the header button: it answers once with a ring */
+@keyframes answer { 0% { box-shadow: 0 0 0 0 rgb(106 63 181 / 0.55); } 100% { box-shadow: 0 0 0 14px rgb(106 63 181 / 0); } }
+.is-answering { animation: answer 0.9s ease-out 2; }
