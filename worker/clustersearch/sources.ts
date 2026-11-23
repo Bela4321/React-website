@@ -33,7 +33,7 @@ export const SOURCES: SourceInfo[] = [
   { id: "arxiv", name: "arXiv", spacingMs: 3000, dailyCap: 1500 },
   { id: "openalex", name: "OpenAlex", spacingMs: 100, dailyCap: 1500 },
   { id: "europepmc", name: "Europe PMC", spacingMs: 100, dailyCap: 1500 },
-  { id: "s2", name: "Semantic Scholar", spacingMs: 1000, dailyCap: 1500 },
+  { id: "s2", name: "Semantic Scholar", spacingMs: 3000, dailyCap: 1500 }, // key allows 1/s, but refuses often below ~3 s
 ];
 
 export const PER_SOURCE = 50;
