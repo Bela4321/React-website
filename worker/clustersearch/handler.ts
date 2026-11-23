@@ -86,7 +86,7 @@ async function run(
   let terms = query;
   let rewritten = false;
   if (looksLikeQuestion(query)) {
-    const kw = await rewrite(query, env, budget).catch((e) => (console.error("rewrite failed", e), null));
+    const kw = await rewrite(query, env, budget).catch((e) => (console.error("rewrite failed", String(e?.message ?? e)), null));
     if (kw) {
       terms = kw;
       rewritten = true;
@@ -161,12 +161,25 @@ async function search(
   if (hit) return hit.json();
 
   const info = SOURCES.find((s) => s.id === source)!;
-  const ask = async (mode: "all" | "any") => {
+  const once = async (mode: "all" | "any") => {
     const slot = await budget.take(source, info.spacingMs, info.dailyCap);
     if (!slot.ok) throw new LimitReached(`${source}: daily cap`, true);
     if (slot.waitMs > 0) await sleep(slot.waitMs);
     const res = await fetch(buildRequest(source, terms, keys, mode), { signal: AbortSignal.timeout(15000) });
     return readResponse(source, res);
+  };
+  // providers refuse a request now and then even inside their limits: two retries, longer pauses
+  const ask = async (mode: "all" | "any") => {
+    for (const pause of [1500, 3500]) {
+      try {
+        return await once(mode);
+      } catch (e) {
+        if (e instanceof LimitReached && e.daily) throw e;
+        console.warn("retrying", source, String((e as Error)?.message ?? e).slice(0, 120));
+        await sleep(pause);
+      }
+    }
+    return once(mode);
   };
 
   let papers = await ask("all");
@@ -195,7 +208,13 @@ async function embedCached(
   const key = cacheKey("emb", source, `${terms}|${papers.map((p) => p.id).join(",")}`);
   const hit = await cache.match(key);
   if (hit) return hit.json();
-  const vectors = await embed(papers.map((p) => embedText(p)), env, budget, false);
+  const texts = papers.map((p) => embedText(p));
+  const vectors = await embed(texts, env, budget, false).catch(async (e) => {
+    if (e instanceof LimitReached) throw e;
+    console.warn("retrying embedding", source, String(e?.message ?? e).slice(0, 160));
+    await sleep(1000);
+    return embed(texts, env, budget, false);
+  });
   ctx.waitUntil(cache.put(key, json(vectors, 200, CACHE_SECONDS)));
   return vectors;
 }
