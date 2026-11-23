@@ -226,7 +226,7 @@ export function parseS2(json: any): Paper[] {
 
 /** Reads a provider response; throws LimitReached on a rate or budget limit, Error otherwise. */
 export async function readResponse(source: SourceId, res: Response): Promise<Paper[]> {
-  if (res.status === 429) throw new LimitReached(`${source}: rate limit`);
+  if (res.status === 429) throw new LimitReached(`${source}: rate limit (${(await res.text()).slice(0, 120)})`);
   const body = await res.text();
   if (!res.ok) {
     if (/budget/i.test(body)) throw new LimitReached(`${source}: daily budget`, true);

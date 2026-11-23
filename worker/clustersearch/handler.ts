@@ -80,7 +80,7 @@ async function run(
   budget: DurableObjectStub<import("./budget").ClusterBudget>,
   send: Send,
 ): Promise<void> {
-  const keys: SourceKeys = { contact: env.CONTACT_EMAIL, openalexKey: env.OPENALEX_API_KEY, s2Key: env.S2_API_KEY };
+  const keys: SourceKeys = { contact: env.CONTACT_EMAIL, openalexKey: cleanKey(env.OPENALEX_API_KEY), s2Key: cleanKey(env.S2_API_KEY) };
 
   // 1. a full question becomes a keyword query; keywords are used as they are
   let terms = query;
@@ -115,6 +115,7 @@ async function run(
       try {
         papers = await search(s.id, terms, keys, env, ctx, budget);
       } catch (e) {
+        console.error("source failed", s.id, String((e as Error)?.message));
         const limit = e instanceof LimitReached;
         if (limit && e.daily) await budget.exhaust(s.id);
         await send({ t: "source", id: s.id, state: limit ? "limit" : "error", message: limit ? undefined : String((e as Error).message) });
@@ -128,6 +129,7 @@ async function run(
         await send({ t: "source", id: s.id, state: "embedding", count: fresh.length });
         const v = await embedCached(s.id, terms, fresh, env, ctx, budget).catch((e) => e);
         if (v instanceof Error) {
+          console.error("embedding failed", s.id, String(v.message));
           aiOk = false;
           await send({ t: "ai", state: v instanceof LimitReached ? "limit" : "error" });
         } else vectors = v;
@@ -256,6 +258,9 @@ async function rewrite(
 }
 
 // --- helpers --------------------------------------------------------------------
+
+/** Keys pasted into `wrangler secret put` sometimes carry quotes or a newline. */
+const cleanKey = (k?: string) => k?.trim().replace(/^["']|["']$/g, "") || undefined;
 
 function json(data: unknown, status = 200, maxAge = 0): Response {
   return new Response(JSON.stringify(data), {
