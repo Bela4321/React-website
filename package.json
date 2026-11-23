@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && mkdir -p dist/ort && cp node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.mjs dist/ort/ && rm -f dist/assets/ort-wasm-*.wasm",
     "preview": "vite preview",
     "test": "node --test tests/",
     "deploy": "npm run build && wrangler deploy"
@@ -13,8 +13,10 @@
   "dependencies": {
     "@fontsource-variable/hanken-grotesk": "^5.3.0",
     "@fontsource/instrument-serif": "^5.3.0",
+    "@huggingface/transformers": "^4.3.2",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "umap-js": "^1.4.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.5",
@@ -29,6 +31,8 @@
   "allowScripts": {
     "esbuild@0.28.2": true,
     "workerd@1.20261119.1": true,
-    "fsevents@2.3.3": true
+    "fsevents@2.3.3": true,
+    "onnxruntime-node": false,
+    "protobufjs": false
   }
 }

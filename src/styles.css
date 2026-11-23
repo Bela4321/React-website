@@ -79,3 +79,4 @@
 /* the closing line points at the header button: it answers once with a ring */
 @keyframes answer { 0% { box-shadow: 0 0 0 0 rgb(106 63 181 / 0.55); } 100% { box-shadow: 0 0 0 14px rgb(106 63 181 / 0); } }
 .is-answering { animation: answer 0.9s ease-out 2; }
+@utility map-btn { @apply grid size-9 place-items-center rounded-xl bg-white text-lg font-medium text-ink shadow ring-1 ring-plum/15 transition hover:bg-lilac; }

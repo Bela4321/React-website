@@ -20,7 +20,7 @@
     <p>Bela Schinke is responsible for this website (the "controller" under the GDPR). You can reach me at <a class="link" href="mailto:bela.schinke@gmail.com">bela.schinke@gmail.com</a>.</p>
 
     <h2>The short version</h2>
-    <p>This site sets no cookies, runs no analytics or tracking, shows no ads and loads nothing from other companies' servers: the font is hosted here. The sudoku solver runs entirely in your browser.</p>
+    <p>This site sets no cookies and runs no analytics or tracking, and it shows no ads. The font is hosted here. Pages only load things from other companies' servers in one case: when you switch on "Process on my device" in ClusterSearch (see below). The sudoku solver runs entirely in your browser.</p>
 
     <h2>Hosting</h2>
     <p>The site and the game server run on Cloudflare (Cloudflare, Inc., 101 Townsend St, San Francisco, CA 94107, USA). To deliver a page, Cloudflare necessarily processes your IP address, the address of the page, the time, and technical details your browser sends, such as its user agent. Cloudflare uses this to deliver the site and protect it from attacks, and keeps short-lived logs. The legal basis is my legitimate interest in a secure, working website (Art. 6(1)(f) GDPR). Cloudflare processes this data for me under a data processing agreement and may process it in the USA; Cloudflare is certified under the EU-U.S. Data Privacy Framework.</p>
@@ -28,6 +28,10 @@
     <h2>Tic-tac-toe</h2>
     <p>When you join a room, the nickname you choose and a random player number are sent to the game server so that two players can find each other and a reload keeps your seat. If you open a public room, your nickname is shown to other visitors in the list of open rooms. A room and everything in it is deleted at the latest 10 minutes after the last player leaves. Legal basis: providing the game you asked for (Art. 6(1)(b) GDPR).</p>
     <p>Your browser remembers your nickname (local storage) and your player number for the open tab (session storage). This is strictly necessary for the game you asked to use (§ 25(2) no. 2 TDDDG), so it needs no consent. You can delete it at any time in your browser settings.</p>
+
+    <h2>ClusterSearch</h2>
+    <p>When you search in ClusterSearch, your search text goes to this site's server on Cloudflare. If it is a full question, a language model on Cloudflare Workers AI turns it into keywords. The server then sends the keywords (not your IP address) to arXiv, OpenAlex, Europe PMC and Semantic Scholar, the academic databases that supply the papers, some of them in the USA, and computes the embeddings of the papers on Cloudflare Workers AI. Search results are cached for 24 hours so that repeated searches don't count against the databases' limits; they are not linked to you. Legal basis: providing the search you asked for (Art. 6(1)(b) GDPR).</p>
+    <p>If you switch on "Process on my device", your browser downloads a language model (about 34 MB) once from Hugging Face (Hugging Face, Inc., USA), which receives your IP address as with any download; the papers are then processed in your browser. Your browser remembers this setting in local storage.</p>
 
     <h2>Email</h2>
     <p>If you email me, I use your address and message only to answer you, and delete them when the conversation is over unless the law requires me to keep them. Legal basis: Art. 6(1)(b) and (f) GDPR.</p>

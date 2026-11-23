@@ -15,7 +15,16 @@ const STOP = new Set(
     // words every abstract uses
     "study studies result results show shows shown paper propose proposed approach method methods based present presents " +
     "also new novel one two three first second well however several many much including can could may might different various " +
-    "data analysis model models significant significantly found finding findings work research article review introduce introduced"
+    "data analysis model models significant significantly found finding findings work research article review introduce introduced " +
+    // academic glue words that name no topic
+    "impact impacts influence influences effect effects role roles underscore underscores underscoring highlight highlights highlighting " +
+    "collectively overall moreover furthermore additionally notably particularly specifically potential potentially associated association " +
+    "evidence recent recently current currently understanding insight insights suggest suggests suggesting suggested indicate indicates " +
+    "demonstrate demonstrates demonstrated reveal reveals revealed observed observe investigate investigated investigation explore explored " +
+    "aim aims objective objectives conclusion conclusions conclude background methods approach approaches framework key important " +
+    "increase increased decrease decreased higher lower level levels high low compared comparison respectively total among across " +
+    "provide provides provided show showed including include includes related relationship relationships factors factor process processes " +
+    "development developed developing role need needs future further therefore thereby addition contribute contributes contributing linearly"
   ).split(/\s+/),
 );
 

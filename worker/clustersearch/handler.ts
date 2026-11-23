@@ -161,31 +161,33 @@ async function search(
   if (hit) return hit.json();
 
   const info = SOURCES.find((s) => s.id === source)!;
-  const once = async (mode: "all" | "any") => {
+  const once = async (q: string) => {
     const slot = await budget.take(source, info.spacingMs, info.dailyCap);
     if (!slot.ok) throw new LimitReached(`${source}: daily cap`, true);
     if (slot.waitMs > 0) await sleep(slot.waitMs);
-    const res = await fetch(buildRequest(source, terms, keys, mode), { signal: AbortSignal.timeout(15000) });
+    const res = await fetch(buildRequest(source, q, keys), { signal: AbortSignal.timeout(15000) });
     return readResponse(source, res);
   };
   // providers refuse a request now and then even inside their limits: two retries, longer pauses
-  const ask = async (mode: "all" | "any") => {
+  const ask = async (q: string) => {
     for (const pause of [1500, 3500]) {
       try {
-        return await once(mode);
+        return await once(q);
       } catch (e) {
         if (e instanceof LimitReached && e.daily) throw e;
         console.warn("retrying", source, String((e as Error)?.message ?? e).slice(0, 120));
         await sleep(pause);
       }
     }
-    return once(mode);
+    return once(q);
   };
 
-  let papers = await ask("all");
-  // arXiv matches every word; for a long keyword list that can leave too little, so widen once
-  if (source === "arxiv" && papers.length < 15 && terms.split(/\s+/).length > 1) {
-    const wider = await ask("any").catch(() => []);
+  let papers = await ask(terms);
+  // arXiv matches every word; for a long keyword list that can leave too little, so retry
+  // with just the first two keywords (the rewrite puts the most important first)
+  const words = terms.split(/\s+/).filter(Boolean);
+  if (source === "arxiv" && papers.length < 15 && words.length > 2) {
+    const wider = await ask(words.slice(0, 2).join(" ")).catch(() => []);
     const seen = new Set(papers.map((p) => p.id));
     papers = [...papers, ...wider.filter((p) => !seen.has(p.id))].slice(0, PER_SOURCE);
   }

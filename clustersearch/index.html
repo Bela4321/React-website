@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- @head -->
+<title>ClusterSearch: clustered academic search, by Bela Schinke</title>
+<meta name="description" content="Search arXiv, OpenAlex, Europe PMC and Semantic Scholar at once and see the results grouped into topics by transformer embeddings and HDBSCAN. A demo of Bela Schinke's bachelor thesis.">
+<meta property="og:title" content="ClusterSearch: clustered academic search">
+<meta property="og:description" content="Search four academic databases at once and see the results grouped into topics.">
+</head>
+<body>
+<!-- @header -->
+
+<main id="main" class="shell py-12 sm:py-16">
+  <h1 class="title-2">ClusterSearch</h1>
+  <p class="mt-4 max-w-2xl text-lg text-muted">Ask a research question or type a topic. ClusterSearch looks it up in four academic databases at once, then groups the papers it finds by what they are about, so you see the topics before the titles.</p>
+  <div id="app" class="mt-10"></div>
+
+  <section class="mt-20 grid max-w-3xl gap-4 border-t border-line pt-10" aria-labelledby="how-h">
+    <h2 id="how-h" class="text-2xl font-medium tracking-tight">How it works</h2>
+    <p class="text-lg text-muted">This is a demo of my bachelor thesis on clustering search results. A full question is first turned into keywords by a small language model. About 50 papers each come from arXiv, OpenAlex, Europe PMC and Semantic Scholar; duplicates are merged. Each title and abstract becomes a vector with a transformer embedding model (Qwen3 Embedding), the vectors are reduced with PCA, and HDBSCAN finds the clusters on its own, without being told how many there are. Its cluster tree lets you split and merge groups. As a baseline, the same papers can be clustered by their words alone (TF-IDF), which is how the difference in quality shows.</p>
+  </section>
+</main>
+
+<!-- @footer -->
+<script type="module" src="/src/clustersearch.tsx"></script>
+</body>
+</html>

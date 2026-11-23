@@ -23,7 +23,7 @@ function partials(): Plugin {
 }
 
 // The pages: index.html, 404.html and every <folder>/index.html listed here.
-const pages = ["sudoku", "tictactoe", "privacy"];
+const pages = ["sudoku", "tictactoe", "privacy", "clustersearch"];
 const input: Record<string, string> = {
   home: resolve(__dirname, "index.html"),
   notfound: resolve(__dirname, "404.html"),
