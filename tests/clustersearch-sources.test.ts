@@ -73,7 +73,7 @@ test("requests: keys go where each provider expects them", () => {
 
 test("limits are recognised", async () => {
   await assert.rejects(readResponse("s2", new Response("x", { status: 429 })), LimitReached);
-  await assert.rejects(readResponse("openalex", new Response('{"error":"Rate limit exceeded","message":"Insufficient budget"}', { status: 403 })), LimitReached);
+  await assert.rejects(readResponse("openalex", new Response('{"error":"Rate limit exceeded","message":"Insufficient budget"}', { status: 403 })), (e: LimitReached) => e instanceof LimitReached && e.daily);
   await assert.rejects(readResponse("arxiv", new Response("Rate exceeded.", { status: 200 })), LimitReached);
   await assert.rejects(readResponse("europepmc", new Response("oops", { status: 500 })), (e: Error) => !(e instanceof LimitReached));
 });

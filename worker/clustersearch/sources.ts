@@ -49,8 +49,10 @@ export interface SourceKeys {
  * tomorrow (OpenAlex's budget, our own caps); otherwise it is a short rate limit (HTTP 429).
  */
 export class LimitReached extends Error {
-  constructor(message: string, readonly daily = false) {
+  readonly daily: boolean;
+  constructor(message: string, daily = false) {
     super(message);
+    this.daily = daily;
   }
 }
 
