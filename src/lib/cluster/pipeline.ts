@@ -6,6 +6,8 @@ import { gramDense, gramSparse, pcaFromGram, type Vector } from "./pca.ts";
 import { tfidf } from "./text.ts";
 
 export const THESIS = { variance: 0.4, minClusterSize: 5, minSamples: 1, maxClusterSize: 80 };
+/** the explorable tree goes down to clusters of 3 papers */
+export const TREE_MIN_CLUSTER_SIZE = 3;
 
 export function clusterVectors(vectors: Vector[]): HdbscanResult & { reduced: number[][] } {
   const reduced = pcaFromGram(gramDense(vectors), THESIS.variance);

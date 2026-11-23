@@ -37,6 +37,17 @@ export async function* search(query: string, mode: "server" | "local", signal: A
   }
 }
 
+/** Short names for clusters from the language model; an empty result means "use the keywords". */
+export async function nameClusters(query: string, clusters: { id: string; titles: string[] }[]): Promise<Record<string, string>> {
+  const res = await fetch("/api/clustersearch/names", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, clusters }),
+  });
+  if (!res.ok) return {};
+  return ((await res.json()) as { names?: Record<string, string> }).names ?? {};
+}
+
 export async function todaysLimits(): Promise<Record<string, boolean>> {
   const res = await fetch("/api/clustersearch/status");
   return res.ok ? res.json() : {};

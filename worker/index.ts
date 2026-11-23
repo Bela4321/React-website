@@ -11,7 +11,7 @@ export default {
       url.hostname = "belaschinke.com";
       return Response.redirect(url.toString(), 301);
     }
-    if (url.pathname === "/api/clustersearch" || url.pathname === "/api/clustersearch/status") {
+    if (url.pathname === "/api/clustersearch" || url.pathname.startsWith("/api/clustersearch/")) {
       return handleClusterSearch(request, env, ctx);
     }
     return env.ASSETS.fetch(request);

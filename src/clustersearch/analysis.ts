@@ -5,7 +5,7 @@ import { UMAP } from "umap-js";
 import { hdbscan, type HdbscanResult } from "../lib/cluster/hdbscan.ts";
 import { gramDense, gramSparse, pcaFromGram } from "../lib/cluster/pca.ts";
 import { tfidf, words, stem } from "../lib/cluster/text.ts";
-import { THESIS } from "../lib/cluster/pipeline.ts";
+import { THESIS, TREE_MIN_CLUSTER_SIZE } from "../lib/cluster/pipeline.ts";
 import type { Paper } from "./api.ts";
 
 export type Method = "embedding" | "tfidf";
@@ -18,6 +18,8 @@ export interface Analysis {
   /** 0..1 per paper: how close it is to the question (1 = closest) */
   relevance: number[];
   keywords: (nodeId: number) => string[];
+  /** the titles nearest the middle of a cluster, for naming it */
+  typicalTitles: (nodeId: number, count?: number) => string[];
 }
 
 const docText = (p: Paper) => `${p.title}. ${p.abstract}`;
@@ -73,7 +75,7 @@ export function analyse(
     });
     void vocab;
   }
-  const hd = hdbscan(reduced, THESIS);
+  const hd = hdbscan(reduced, { ...THESIS, treeMinClusterSize: TREE_MIN_CLUSTER_SIZE });
 
   // 2. the map: UMAP on the same PCA space the clustering sees, so map and clusters agree
   const mapInput = reduced;
@@ -84,16 +86,32 @@ export function analyse(
     random: mulberry32(42),
   });
   const raw = n >= 4 ? umap.fit(mapInput) : mapInput.map((_, i) => [i, i]);
-  const xs = raw.map((p) => p[0]);
-  const ys = raw.map((p) => p[1]);
-  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-  const coords = raw.map(([x, y]) => [(x - x0) / (x1 - x0 || 1), (y - y0) / (y1 - y0 || 1)] as [number, number]);
+  // scale to the bulk of the points (3rd to 97th percentile), so one far-off group doesn't squeeze
+  // the rest into a corner; points beyond that sit at the edge of the map
+  const scale = (vals: number[]) => {
+    const sorted = [...vals].sort((a, b) => a - b);
+    const q = (f: number) => sorted[Math.min(sorted.length - 1, Math.max(0, Math.round(f * (sorted.length - 1))))];
+    const [lo, hi] = [q(0.03), q(0.97)];
+    const span = hi - lo || 1;
+    return vals.map((v) => (Math.min(1.06, Math.max(-0.06, (v - lo) / span)) + 0.06) / 1.12);
+  };
+  const xs = scale(raw.map((p) => p[0]));
+  const ys = scale(raw.map((p) => p[1]));
+  const coords = xs.map((x, i) => [x, ys[i]] as [number, number]);
 
   // 3. relevance as 0..1 within this result set
   const [rMin, rMax] = [Math.min(...relevance), Math.max(...relevance)];
   const rel = relevance.map((r) => (rMax > rMin ? (r - rMin) / (rMax - rMin) : 0));
 
-  return { method, hd, coords, relevance: rel, keywords: keywordScorer(docs, hd, query) };
+  const typicalTitles = (nodeId: number, count = 4) => {
+    const pts = hd.nodes.get(nodeId)?.points ?? [];
+    if (!pts.length) return [];
+    const dims = reduced[0].length;
+    const mean = Array.from({ length: dims }, (_, j) => pts.reduce((s, i) => s + reduced[i][j], 0) / pts.length);
+    const d = (i: number) => reduced[i].reduce((s, x, j) => s + (x - mean[j]) ** 2, 0);
+    return [...pts].sort((a, b) => d(a) - d(b)).slice(0, count).map((i) => papers[i].title);
+  };
+  return { method, hd, coords, relevance: rel, keywords: keywordScorer(docs, hd, query), typicalTitles };
 }
 
 /**

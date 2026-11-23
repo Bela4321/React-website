@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { search, todaysLimits, type Paper, type SourceId, type SourceState } from "./clustersearch/api.ts";
+import { nameClusters, search, todaysLimits, type Paper, type SourceId, type SourceState } from "./clustersearch/api.ts";
 import { analyse, type Analysis, type Method } from "./clustersearch/analysis.ts";
 import { embedLocally, loadModel } from "./clustersearch/local.ts";
 import { cutToK, labelsFor, maxClusters, mergeNode, splitNode } from "./lib/cluster/hdbscan.ts";
@@ -13,10 +13,10 @@ import ListView from "./clustersearch/ListView.tsx";
 import "./styles.css";
 
 const SUGGESTIONS = [
+  "environmental impact of meat consumption",
   "How do gut bacteria affect depression?",
-  "quantum error correction",
-  "Which methods detect exoplanet atmospheres?",
-  "protein structure prediction",
+  "nuclear energy in global geopolitics",
+  "how to be happy",
 ];
 const SOURCE_IDS: SourceId[] = ["arxiv", "openalex", "europepmc", "s2"];
 
@@ -62,6 +62,9 @@ function ClusterSearch() {
   const [busy, setBusy] = useState(false);
   const [shown, setShown] = useState<number[]>([]);
   const [tab, setTab] = useState<"map" | "tree" | "list">("map");
+  // names from the language model, per analysis; ids asked for already
+  const [names, setNames] = useState<Map<number, string>>(new Map());
+  const asked = useRef<Set<number>>(new Set());
   const abort = useRef<AbortController | null>(null);
   const runRef = useRef<Run | null>(null);
 
@@ -183,10 +186,44 @@ function ClusterSearch() {
       const vectors = r.papers.map((p) => r.vectors.get(p.id));
       const a = analyse(r.papers, vectors, r.queryVector, r.terms ?? r.query, m);
       setAnalysis(a);
+      setNames(new Map());
+      asked.current = new Set();
       setShown(a.hd.selected.length ? a.hd.selected : cutToK(a.hd.nodes, a.hd.root, Math.min(5, maxClusters(a.hd.nodes))));
       setBusy(false);
     }, 30);
   }
+
+  // name the shown clusters and the groups above them, a batch at a time
+  useEffect(() => {
+    if (!analysis || !run) return;
+    const { nodes, root } = analysis.hd;
+    // the shown clusters, plus the groups above them where the tree branches into several shown ones
+    const want = new Set<number>(shown);
+    const shownSet = new Set(shown);
+    const holdsShown = (id: number): boolean => shownSet.has(id) || nodes.get(id)!.children.some(holdsShown);
+    for (const id of shown) {
+      for (let x = nodes.get(id)!.parent; x !== null && x !== root; x = nodes.get(x)!.parent) {
+        if (nodes.get(x)!.children.filter(holdsShown).length > 1) want.add(x);
+      }
+    }
+    const missing = [...want].filter((id) => !asked.current.has(id));
+    if (!missing.length) return;
+    missing.forEach((id) => asked.current.add(id));
+    const current = analysis;
+    nameClusters(run.terms ?? run.query, missing.map((id) => ({ id: String(id), titles: current.typicalTitles(id) })))
+      .then((got) => {
+        if (current !== analysisRef.current) return;
+        setNames((m) => {
+          const next = new Map(m);
+          for (const [id, name] of Object.entries(got)) next.set(Number(id), name.charAt(0).toUpperCase() + name.slice(1));
+          return next;
+        });
+      })
+      .catch(() => {});
+  }, [analysis, shown, run]);
+  const analysisRef = useRef<Analysis | null>(null);
+  analysisRef.current = analysis;
+  const nameOf = (id: number) => names.get(id);
 
   const labels = useMemo(() => (analysis ? labelsFor(analysis.hd.nodes, shown, run?.papers.length ?? 0) : []), [analysis, shown, run?.papers.length]);
   const canEmbed = !!run && run.papers.length > 0 && run.vectors.size === run.papers.length;
@@ -380,11 +417,12 @@ function ClusterSearch() {
               <p className="text-sm text-muted">
                 {run.papers.length} papers · {analysis.hd.selected.length} clusters found by HDBSCAN · showing {shown.length}
               </p>
-              {tab === "map" && <MapView papers={run.papers} analysis={analysis} shown={shown} labels={labels} />}
+              {tab === "map" && <MapView papers={run.papers} analysis={analysis} shown={shown} labels={labels} nameOf={nameOf} />}
               {tab === "tree" && (
                 <TreeView
                   papers={run.papers}
                   analysis={analysis}
+                  nameOf={nameOf}
                   shown={shown}
                   onSplit={(id) => setShown(splitNode(analysis.hd.nodes, analysis.hd.root, shown, id))}
                   onMerge={(id) => setShown(mergeNode(analysis.hd.nodes, analysis.hd.root, shown, id))}
@@ -396,6 +434,7 @@ function ClusterSearch() {
                 <ListView
                   papers={run.papers}
                   analysis={analysis}
+                  nameOf={nameOf}
                   shown={shown}
                   labels={labels}
                   onCut={(k) => setShown(cutToK(analysis.hd.nodes, analysis.hd.root, k))}

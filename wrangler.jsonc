@@ -16,7 +16,10 @@
   "ai": { "binding": "AI" },
   "durable_objects": { "bindings": [{ "name": "CLUSTER_BUDGET", "class_name": "ClusterBudget" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ClusterBudget"] }],
-  "ratelimits": [{ "name": "CLUSTER_RATE", "namespace_id": "4101", "simple": { "limit": 6, "period": 60 } }],
+  "ratelimits": [
+    { "name": "CLUSTER_RATE", "namespace_id": "4101", "simple": { "limit": 6, "period": 60 } },
+    { "name": "CLUSTER_NAMES_RATE", "namespace_id": "4102", "simple": { "limit": 30, "period": 60 } }
+  ],
   "vars": { "CONTACT_EMAIL": "api_usage@belaschinke.com" },
   // secrets (wrangler secret put): OPENALEX_API_KEY, S2_API_KEY
   "observability": { "enabled": true },

@@ -12,6 +12,7 @@ import { colorOf } from "./ui.ts";
 export default function TreeView({
   papers,
   analysis,
+  nameOf,
   shown,
   onSplit,
   onMerge,
@@ -20,6 +21,7 @@ export default function TreeView({
 }: {
   papers: Paper[];
   analysis: Analysis;
+  nameOf: (id: number) => string | undefined;
   shown: number[];
   onSplit: (id: number) => void;
   onMerge: (id: number) => void;
@@ -36,6 +38,7 @@ export default function TreeView({
   const row = (id: number, depth: number): React.ReactNode => {
     const node = nodes.get(id)!;
     const words = id === root ? ["all results"] : analysis.keywords(id);
+    const name = id === root ? "All results" : nameOf(id);
     if (shownSet.has(id)) {
       const ci = shown.indexOf(id);
       const isOpen = open.has(id);
@@ -49,7 +52,8 @@ export default function TreeView({
               aria-expanded={isOpen}
               onClick={() => setOpen((s) => new Set(s.has(id) ? [...s].filter((x) => x !== id) : [...s, id]))}
             >
-              {words.join(" · ") || "cluster"} <span className="font-normal text-muted">({node.points.length} papers)</span>
+              {name ?? (words.join(" · ") || "cluster")} <span className="font-normal text-muted">({node.points.length} papers)</span>
+              {name && <span className="block text-sm font-normal text-muted">{words.join(" · ")}</span>}
             </button>
             {node.children.length > 0 && (
               <button type="button" className="btn-quiet h-8 px-3 text-sm" onClick={() => onSplit(id)}>
@@ -81,20 +85,23 @@ export default function TreeView({
       );
     }
     if (!hasShownBelow(id)) return null;
+    // a group with only one visible branch below it adds nothing: show that branch in its place
+    const branches = node.children.filter((c) => shownSet.has(c) || hasShownBelow(c));
+    if (branches.length === 1) return row(branches[0], depth);
     return (
       <li key={id} className="grid gap-2">
         {id !== root && (
           <div style={{ marginLeft: depth * 20 }} className="flex items-center gap-2 text-sm text-muted">
             <span aria-hidden="true">▾</span>
             <span>
-              {words.join(" · ")} ({node.points.length})
+              {name ?? words.join(" · ")} ({node.points.length})
             </span>
             <button type="button" className="font-medium text-plum hover:underline" onClick={() => onMerge(node.children[0])}>
               Merge
             </button>
           </div>
         )}
-        <ul className="grid gap-2">{node.children.map((c) => row(c, id === root ? depth : depth + 1))}</ul>
+        <ul className="grid gap-2">{branches.map((c) => row(c, id === root ? depth : depth + 1))}</ul>
       </li>
     );
   };

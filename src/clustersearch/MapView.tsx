@@ -18,11 +18,13 @@ export default function MapView({
   analysis,
   shown,
   labels,
+  nameOf,
 }: {
   papers: Paper[];
   analysis: Analysis;
   shown: number[];
   labels: number[];
+  nameOf: (id: number) => string | undefined;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 560 });
@@ -182,7 +184,7 @@ export default function MapView({
                   strokeWidth={4}
                   paintOrder="stroke"
                 >
-                  {analysis.keywords(c.id).slice(0, 2).join(" · ")}
+                  {nameOf(c.id) ?? analysis.keywords(c.id).slice(0, 2).join(" · ")}
                 </text>
               ),
           )}

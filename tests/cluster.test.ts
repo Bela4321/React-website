@@ -89,3 +89,19 @@ test("TF-IDF baseline runs end to end", () => {
   const r = clusterTexts(docs);
   assert.ok(r.selected.length >= 2, String(r.selected.length));
 });
+
+test("the finer tree keeps HDBSCAN's choice and allows splitting below it", () => {
+  const coarse = hdbscan(ref.blobs.points, { minClusterSize: 5, minSamples: 1, maxClusterSize: 80 });
+  const fine = hdbscan(ref.blobs.points, { minClusterSize: 5, minSamples: 1, maxClusterSize: 80, treeMinClusterSize: 3 });
+  assert.equal(adjustedRand(coarse.labels, fine.labels), 1);
+  assert.equal(fine.selected.length, coarse.selected.length);
+  assert.ok(maxClusters(fine.nodes) >= maxClusters(coarse.nodes));
+  // at least one selected cluster can be split further, and no cluster in the tree is below 3 papers
+  assert.ok(fine.selected.some((id) => fine.nodes.get(id)!.children.length > 0));
+  for (const node of fine.nodes.values()) assert.ok(node.points.length >= 3);
+  const raw = new Int16Array(Uint8Array.from(Buffer.from(ref.real.embeddings, "base64")).buffer);
+  const vectors = Array.from({ length: ref.real.n }, (_, i) => Float64Array.from(raw.subarray(i * ref.real.dims, (i + 1) * ref.real.dims), (x) => x / 1e4));
+  const real = clusterVectors(vectors);
+  const realFine = hdbscan(real.reduced, { minClusterSize: 5, minSamples: 1, maxClusterSize: 80, treeMinClusterSize: 3 });
+  assert.equal(adjustedRand(real.labels, realFine.labels), 1);
+});

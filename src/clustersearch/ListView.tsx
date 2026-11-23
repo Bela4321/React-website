@@ -8,12 +8,14 @@ import { authorsLine, colorOf, NOISE_COLOR, sourceNames } from "./ui.ts";
 export default function ListView({
   papers,
   analysis,
+  nameOf,
   shown,
   labels,
   onCut,
 }: {
   papers: Paper[];
   analysis: Analysis;
+  nameOf: (id: number) => string | undefined;
   shown: number[];
   labels: number[];
   onCut: (k: number) => void;
@@ -22,8 +24,8 @@ export default function ListView({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const byRelevance = (ids: number[]) => [...ids].sort((a, b) => analysis.relevance[b] - analysis.relevance[a]);
   const groups = [
-    ...shown.map((id, ci) => ({ key: String(id), color: colorOf(ci), title: analysis.keywords(id).join(" · ") || "cluster", ids: byRelevance(labels.flatMap((l, i) => (l === id ? [i] : []))) })),
-    { key: "noise", color: NOISE_COLOR, title: "Not in any cluster", ids: byRelevance(labels.flatMap((l, i) => (l === -1 ? [i] : []))) },
+    ...shown.map((id, ci) => ({ key: String(id), color: colorOf(ci), title: nameOf(id) ?? (analysis.keywords(id).join(" · ") || "cluster"), sub: nameOf(id) ? analysis.keywords(id).join(" · ") : "", ids: byRelevance(labels.flatMap((l, i) => (l === id ? [i] : []))) })),
+    { key: "noise", color: NOISE_COLOR, title: "Not in any cluster", sub: "", ids: byRelevance(labels.flatMap((l, i) => (l === -1 ? [i] : []))) },
   ].filter((g) => g.ids.length);
 
   return (
@@ -40,6 +42,7 @@ export default function ListView({
             <span className="size-3 shrink-0 rounded-full" style={{ background: g.color }} aria-hidden="true" />
             {g.title} <span className="text-base font-normal text-muted">({g.ids.length})</span>
           </h3>
+          {g.sub && <p className="mt-1 ml-6 text-sm text-muted">{g.sub}</p>}
           <ul className="mt-4 divide-y divide-line">
             {g.ids.map((i) => {
               const p = papers[i];

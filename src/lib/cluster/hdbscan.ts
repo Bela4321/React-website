@@ -31,6 +31,11 @@ export interface HdbscanOptions {
   minClusterSize?: number;
   minSamples?: number;
   maxClusterSize?: number;
+  /**
+   * Build the returned tree with this smaller minimum cluster size, so clusters can be split
+   * further than HDBSCAN's own choice. Selection and labels still use minClusterSize.
+   */
+  treeMinClusterSize?: number;
 }
 
 const euclid = (a: ArrayLike<number>, b: ArrayLike<number>) => {
@@ -48,8 +53,7 @@ export function hdbscan(points: ArrayLike<number>[], opts: HdbscanOptions = {}):
   const minSamples = opts.minSamples ?? 1;
   const maxClusterSize = opts.maxClusterSize ?? Infinity;
 
-  const nodes = new Map<number, ClusterNode>();
-  if (n === 0) return { labels: [], selected: [], nodes, root: 0 };
+  if (n === 0) return { labels: [], selected: [], nodes: new Map(), root: 0 };
 
   // 1. distances and core distances (distance to the minSamples-th neighbour, the point itself counting as the first)
   const dist = Array.from({ length: n }, () => new Float64Array(n));
@@ -119,67 +123,75 @@ export function hdbscan(points: ArrayLike<number>[], opts: HdbscanOptions = {}):
   };
   const lambdaOf = (d: number) => (d > 0 ? 1 / d : Infinity);
 
-  // 4. condensed tree: walk down from the top; a split counts only if both sides have >= minClusterSize points
-  let nextId = 0;
-  const pointLambda = new Float64Array(n); // lambda at which each point leaves its last cluster
-  const pointCluster = new Int32Array(n); // that cluster
-  const newNode = (parent: number | null, birth: number, members: number[]): ClusterNode => {
-    const node: ClusterNode = { id: nextId++, parent, children: [], birth, death: birth, stability: 0, points: members };
-    nodes.set(node.id, node);
-    if (parent !== null) nodes.get(parent)!.children.push(node.id);
-    return node;
-  };
-  const root = newNode(null, 0, leavesOf(top));
+  // 4.-5. condensed tree and stabilities for a given minimum cluster size
+  const condense = (minSize: number) => {
+    const nodes = new Map<number, ClusterNode>();
+    let nextId = 0;
+    const pointLambda = new Float64Array(n); // lambda at which each point leaves its last cluster
+    const pointCluster = new Int32Array(n); // that cluster
+    const newNode = (parent: number | null, birth: number, members: number[]): ClusterNode => {
+      const node: ClusterNode = { id: nextId++, parent, children: [], birth, death: birth, stability: 0, points: members };
+      nodes.set(node.id, node);
+      if (parent !== null) nodes.get(parent)!.children.push(node.id);
+      return node;
+    };
+    const root = newNode(null, 0, leavesOf(top));
 
-  // each work item: a dendrogram node that belongs to condensed cluster `c`
-  const stack: [number, number][] = n > 1 ? [[top, root.id]] : [];
-  if (n === 1) {
-    pointLambda[0] = Infinity;
-    pointCluster[0] = root.id;
-  }
-  while (stack.length) {
-    const [dn, c] = stack.pop()!;
-    const k = dn - n;
-    const lam = lambdaOf(height[k]);
-    const cl = nodes.get(c)!;
-    const [a, b] = [left[k], right[k]];
-    const big = (x: number) => size[x] >= minClusterSize;
-    if (big(a) && big(b)) {
-      cl.death = lam;
-      for (const child of [a, b]) {
-        const node = newNode(c, lam, leavesOf(child));
-        if (child >= n) stack.push([child, node.id]);
-        else {
-          pointLambda[child] = Infinity;
-          pointCluster[child] = node.id;
-        }
-      }
-    } else {
-      for (const child of [a, b]) {
-        if (big(child)) {
-          if (child >= n) stack.push([child, c]);
-        } else {
-          for (const p of leavesOf(child)) {
-            pointLambda[p] = lam;
-            pointCluster[p] = c;
+    // walk down from the top; a split counts only if both sides have >= minSize points.
+    // Each work item: a dendrogram node that belongs to condensed cluster `c`.
+    const stack: [number, number][] = n > 1 ? [[top, root.id]] : [];
+    if (n === 1) {
+      pointLambda[0] = Infinity;
+      pointCluster[0] = root.id;
+    }
+    while (stack.length) {
+      const [dn, c] = stack.pop()!;
+      const k = dn - n;
+      const lam = lambdaOf(height[k]);
+      const cl = nodes.get(c)!;
+      const [a, b] = [left[k], right[k]];
+      const big = (x: number) => size[x] >= minSize;
+      if (big(a) && big(b)) {
+        cl.death = lam;
+        for (const child of [a, b]) {
+          const node = newNode(c, lam, leavesOf(child));
+          if (child >= n) stack.push([child, node.id]);
+          else {
+            pointLambda[child] = Infinity;
+            pointCluster[child] = node.id;
           }
         }
+      } else {
+        for (const child of [a, b]) {
+          if (big(child)) {
+            if (child >= n) stack.push([child, c]);
+          } else {
+            for (const p of leavesOf(child)) {
+              pointLambda[p] = lam;
+              pointCluster[p] = c;
+            }
+          }
+        }
+        cl.death = Math.max(cl.death, lam);
       }
-      cl.death = Math.max(cl.death, lam);
     }
-  }
 
-  // 5. stability: sum over points of (lambda_p - lambda_birth), where lambda_p is when the point
-  //    leaves the cluster (or, for points passed on to child clusters, when the cluster splits)
-  for (const node of nodes.values()) {
-    if (node.parent === null) continue;
-    let s = 0;
-    for (const p of node.points) {
-      const leaves = isDescendant(nodes, pointCluster[p], node.id) && pointCluster[p] !== node.id ? node.death : pointLambda[p];
-      s += Math.min(leaves, finiteCap(node)) - node.birth;
+    // stability: sum over points of (lambda_p - lambda_birth), where lambda_p is when the point
+    // leaves the cluster (or, for points passed on to child clusters, when the cluster splits)
+    for (const node of nodes.values()) {
+      if (node.parent === null) continue;
+      let s = 0;
+      for (const p of node.points) {
+        const leaves = isDescendant(nodes, pointCluster[p], node.id) && pointCluster[p] !== node.id ? node.death : pointLambda[p];
+        s += Math.min(leaves, finiteCap(node)) - node.birth;
+      }
+      node.stability = s;
     }
-    node.stability = s;
-  }
+    return { nodes, root: root.id };
+  };
+
+  const coarse = condense(minClusterSize);
+  const nodes = coarse.nodes;
 
   // 6. excess of mass selection, bottom-up; the root is never a cluster, nor anything above maxClusterSize
   const selectedSet = new Set<number>();
@@ -199,8 +211,22 @@ export function hdbscan(points: ArrayLike<number>[], opts: HdbscanOptions = {}):
     }
     subtreeScore.set(node.id, childScore);
   }
-  const selected = treeOrder(nodes, root.id).filter((id) => selectedSet.has(id));
-  return { labels: labelsFor(nodes, selected, n), selected, nodes, root: root.id };
+  const selected = treeOrder(nodes, coarse.root).filter((id) => selectedSet.has(id));
+
+  // 7. optionally a finer tree to explore below HDBSCAN's clusters. Every split of the coarse tree
+  //    is also a split of the fine one (both sides are big enough for either), so each selected
+  //    cluster has a twin in the fine tree with exactly the same points.
+  const treeMin = opts.treeMinClusterSize ?? minClusterSize;
+  if (treeMin < minClusterSize) {
+    const fine = condense(treeMin);
+    const key = (pts: number[]) => [...pts].sort((a, b) => a - b).join(",");
+    const twin = new Map<string, number>();
+    for (const node of fine.nodes.values()) twin.set(key(node.points), node.id);
+    const fineSelected = selected.map((id) => twin.get(key(nodes.get(id)!.points))!).filter((id) => id !== undefined);
+    const ordered = treeOrder(fine.nodes, fine.root).filter((id) => fineSelected.includes(id));
+    return { labels: labelsFor(fine.nodes, ordered, n), selected: ordered, nodes: fine.nodes, root: fine.root };
+  }
+  return { labels: labelsFor(nodes, selected, n), selected, nodes, root: coarse.root };
 }
 
 // --- cutting the tree -------------------------------------------------------------

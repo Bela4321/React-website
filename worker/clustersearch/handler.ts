@@ -16,6 +16,7 @@ import { looksLikeQuestion, packVectors, prepareVector } from "./vectors";
  *   {t:"ai", state:"limit"|"error"}                                        (server embeddings unavailable)
  *   {t:"end", total}
  * GET /api/clustersearch/status  ->  {arxiv:bool, ..., ai:bool}  (true = used up today)
+ * POST /api/clustersearch/names  {query, clusters:[{id, titles:[...]}]}  ->  {names:{id: "short name"}}
  *
  * The server only searches and embeds; clustering, the map and the tree run in the browser.
  */
@@ -37,6 +38,8 @@ export async function handleClusterSearch(request: Request, env: Env, ctx: Execu
     const caps = Object.fromEntries(SOURCES.map((s) => [s.id, s.dailyCap]));
     return json(await budget.status(SOURCES.map((s) => s.id), caps));
   }
+
+  if (url.pathname === "/api/clustersearch/names") return handleNames(request, env, ctx, budget);
 
   const query = (url.searchParams.get("q") ?? "").replace(/\s+/g, " ").trim().slice(0, 300);
   const mode = url.searchParams.get("mode") === "local" ? "local" : "server";
@@ -97,7 +100,7 @@ async function run(
   // 2. the question itself, embedded once, lets the page rank papers by how well they answer it
   let aiOk = mode === "server";
   if (aiOk) {
-    const q = await embed([query], env, budget, true).catch((e) => e);
+    const q = await queryVectorCached(query, env, ctx, budget).catch((e) => e);
     if (q instanceof Error) {
       aiOk = false;
       await send({ t: "ai", state: q instanceof LimitReached ? "limit" : "error" });
@@ -127,7 +130,9 @@ async function run(
       let vectors: number[][] | null = null;
       if (aiOk && fresh.length) {
         await send({ t: "source", id: s.id, state: "embedding", count: fresh.length });
-        const v = await embedCached(s.id, terms, fresh, env, ctx, budget).catch((e) => e);
+        const v = await embedCached(s.id, terms, papers, env, ctx, budget)
+          .then((byId) => fresh.map((p) => byId.get(p.id)!))
+          .catch((e) => e);
         if (v instanceof Error) {
           console.error("embedding failed", s.id, String(v.message));
           aiOk = false;
@@ -197,7 +202,11 @@ async function search(
 
 // --- embeddings -----------------------------------------------------------------
 
-/** Embeddings for one source's new papers, cached by source + query + paper ids. */
+/**
+ * Embeddings for all of one source's papers, cached by source + query. (Caching the whole
+ * result, not just the papers new to this search, means a repeated search never re-embeds,
+ * whichever order the sources answer in.)
+ */
 async function embedCached(
   source: SourceId,
   terms: string,
@@ -205,11 +214,14 @@ async function embedCached(
   env: Env,
   ctx: ExecutionContext,
   budget: DurableObjectStub<import("./budget").ClusterBudget>,
-): Promise<number[][]> {
+): Promise<Map<string, number[]>> {
   const cache = caches.default;
-  const key = cacheKey("emb", source, `${terms}|${papers.map((p) => p.id).join(",")}`);
+  const key = cacheKey("emb2", source, terms);
   const hit = await cache.match(key);
-  if (hit) return hit.json();
+  if (hit) {
+    const cached = (await hit.json()) as Record<string, number[]>;
+    if (papers.every((p) => cached[p.id])) return new Map(Object.entries(cached));
+  }
   const texts = papers.map((p) => embedText(p));
   const vectors = await embed(texts, env, budget, false).catch(async (e) => {
     if (e instanceof LimitReached) throw e;
@@ -217,8 +229,9 @@ async function embedCached(
     await sleep(1000);
     return embed(texts, env, budget, false);
   });
-  ctx.waitUntil(cache.put(key, json(vectors, 200, CACHE_SECONDS)));
-  return vectors;
+  const byId = new Map(papers.map((p, i) => [p.id, vectors[i]]));
+  ctx.waitUntil(cache.put(key, json(Object.fromEntries(byId), 200, CACHE_SECONDS)));
+  return byId;
 }
 
 async function embed(
@@ -246,6 +259,20 @@ async function embed(
   await budget.aiSpent(neurons);
   if (!out.data || out.data.length !== texts.length) throw new Error("ai: unexpected embedding response");
   return out.data.map((v) => prepareVector(v, DIMS));
+}
+
+async function queryVectorCached(
+  query: string,
+  env: Env,
+  ctx: ExecutionContext,
+  budget: DurableObjectStub<import("./budget").ClusterBudget>,
+): Promise<number[][]> {
+  const key = cacheKey("qvec", "all", query);
+  const hit = await caches.default.match(key);
+  if (hit) return hit.json();
+  const v = await embed([query], env, budget, true);
+  ctx.waitUntil(caches.default.put(key, json(v, 200, CACHE_SECONDS)));
+  return v;
 }
 
 // --- questions --------------------------------------------------------------------
@@ -276,6 +303,83 @@ async function rewrite(
   const text = (out.response ?? out.choices?.[0]?.message?.content ?? "").replace(/["'`.,;:!?\n]/g, " ").replace(/\s+/g, " ").trim();
   const words = text.split(" ").filter(Boolean);
   return words.length >= 1 && words.length <= 10 ? words.join(" ") : null;
+}
+
+// --- cluster names ------------------------------------------------------------------
+
+const MAX_NAMED = 24;
+const NAME_NEURONS = 15; // a generous estimate for one naming call (~1,000 tokens in, ~250 out)
+
+/**
+ * Names clusters from a few typical titles each, in one call to the language model.
+ * Cached for a day by content; the page falls back to its keyword labels when this fails.
+ */
+async function handleNames(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+  budget: DurableObjectStub<import("./budget").ClusterBudget>,
+): Promise<Response> {
+  if (request.method !== "POST") return json({ error: "POST expected" }, 405);
+  const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  if (!(await env.CLUSTER_NAMES_RATE.limit({ key: ip })).success) return json({ names: {} }, 429);
+
+  const body = (await request.json().catch(() => null)) as { query?: unknown; clusters?: unknown } | null;
+  const query = String(body?.query ?? "").slice(0, 300);
+  const clusters = (Array.isArray(body?.clusters) ? body.clusters : [])
+    .slice(0, MAX_NAMED)
+    .map((c: any) => ({
+      id: String(c?.id ?? "").slice(0, 12),
+      titles: (Array.isArray(c?.titles) ? c.titles : []).slice(0, 4).map((t: unknown) => String(t).slice(0, 140)),
+    }))
+    .filter((c: { id: string; titles: string[] }) => c.id && c.titles.length);
+  if (!clusters.length) return json({ names: {} });
+
+  const payload = JSON.stringify({ query, clusters });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(payload));
+  const key = new Request(`https://clustersearch.cache/names/${[...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("")}`);
+  const hit = await caches.default.match(key);
+  if (hit) return json(await hit.json());
+
+  if (!(await budget.aiAvailable(NAME_NEURONS))) return json({ names: {} });
+  const list = clusters.map((c: { id: string; titles: string[] }) => `${c.id}:\n${c.titles.map((t: string) => `- ${t}`).join("\n")}`).join("\n\n");
+  let text = "";
+  try {
+    const out = (await env.AI.run(REWRITE_MODEL, {
+      messages: [
+        {
+          role: "system",
+          content:
+            "You name groups of scientific papers. For each group, write a short, specific topic name of 2 to 5 words that " +
+            "says what sets this group apart from the others (not the shared search topic). Plain English, sentence case, no quotes. " +
+            'Answer only with JSON: {"<group id>": "<name>", ...}',
+        },
+        { role: "user", content: `Search: ${query}\n\n${list}` },
+      ],
+      max_tokens: 400,
+      temperature: 0.2,
+      chat_template_kwargs: { enable_thinking: false },
+    })) as { response?: string; choices?: { message?: { content?: string } }[] };
+    text = out.response ?? out.choices?.[0]?.message?.content ?? "";
+  } catch (e) {
+    console.error("naming failed", String((e as Error)?.message ?? e));
+    return json({ names: {} });
+  }
+  await budget.aiSpent(NAME_NEURONS);
+
+  const names: Record<string, string> = {};
+  try {
+    const parsed = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)) as Record<string, unknown>;
+    for (const c of clusters) {
+      const name = String(parsed[c.id] ?? "").replace(/["\n]/g, " ").trim().slice(0, 60);
+      if (name) names[c.id] = name;
+    }
+  } catch {
+    console.warn("naming: unreadable answer", text.slice(0, 200));
+  }
+  const result = { names };
+  if (Object.keys(names).length) ctx.waitUntil(caches.default.put(key, json(result, 200, CACHE_SECONDS)));
+  return json(result);
 }
 
 // --- helpers --------------------------------------------------------------------
