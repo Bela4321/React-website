@@ -1,0 +1,4 @@
+{"total": 2, "offset": 0, "data": [
+ {"paperId": "abc123", "externalIds": {"DOI": "10.1016/J.CUB.2022.02.023", "CorpusId": 1}, "url": "https://www.semanticscholar.org/paper/abc123", "title": "The gut microbiome", "abstract": "A short overview of the gut microbiome.", "venue": "Current Biology", "year": 2022, "authors": [{"authorId": "1", "name": "A. Author"}, {"authorId": "2", "name": "B. Author"}]},
+ {"paperId": "def456", "externalIds": {}, "url": "https://www.semanticscholar.org/paper/def456", "title": "No abstract here", "abstract": null, "venue": "", "year": 2020, "authors": []}
+]}

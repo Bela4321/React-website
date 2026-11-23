@@ -11,6 +11,15 @@
     "run_worker_first": true
   },
   "workers_dev": false,
+  // ClusterSearch (/api/clustersearch): embeddings and question rewriting on Workers AI,
+  // daily budgets and request spacing in one Durable Object, a per-visitor rate limit
+  "ai": { "binding": "AI" },
+  "durable_objects": { "bindings": [{ "name": "CLUSTER_BUDGET", "class_name": "ClusterBudget" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ClusterBudget"] }],
+  "ratelimits": [{ "name": "CLUSTER_RATE", "namespace_id": "4101", "simple": { "limit": 6, "period": 60 } }],
+  "vars": { "CONTACT_EMAIL": "api_usage@belaschinke.com" },
+  // secrets (wrangler secret put): OPENALEX_API_KEY, S2_API_KEY
+  "observability": { "enabled": true },
   "routes": [
     { "pattern": "belaschinke.com", "custom_domain": true },
     { "pattern": "www.belaschinke.com", "custom_domain": true }
